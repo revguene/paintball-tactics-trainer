@@ -1,0 +1,30 @@
+# Godot
+*.godot
+*.import
+.godot/
+.import/
+export_presets.cfg
+export_presets.dev.cfg
+export_presets.prod.cfg
+
+# Editor
+*.tmp
+*.temp
+*~
+.idea/
+.vscode/
+*.swp
+*.swo
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build
+build/
+dist/
+*.apk
+*.aab
+*.ipa
