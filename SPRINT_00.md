@@ -278,3 +278,27 @@ Project architecture is ready.
 Documentation exists.
 
 Ready for Sprint 1.
+
+## Обновлённая структура (Sprint 0)
+
+Вместо scripts/ используется src/ с модулями:
+
+- src/core/     — базовые классы и утилиты
+- src/editor/   — логика редактора
+- src/ui/       — UI компоненты
+- src/import/   — импорт данных
+- src/geometry/ — геометрические расчёты
+- src/scenario/ — сценарии
+- src/io/       — ввод/вывод, сохранение
+
+Assets переструктурированы:
+
+- assets/images/layouts/   — изображения полей
+- assets/images/bunkers/   — иконки укрытий
+- assets/images/ui/        — UI элементы
+
+Данные хранятся отдельно:
+
+- data/layouts/   — JSON с макетами полей
+- data/bunkers/   — JSON с данными укрытий
+- data/scenarios/ — JSON со сценариями

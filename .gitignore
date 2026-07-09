@@ -28,3 +28,9 @@ dist/
 *.apk
 *.aab
 *.ipa
+
+# Old structure (if any)
+# scripts/
+# assets/layouts/
+# assets/bunkers/
+# assets/icons/
