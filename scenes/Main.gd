@@ -93,3 +93,46 @@ func save_document(path: String) -> void:
 func load_document(path: String) -> void:
 	# TODO: Реализовать загрузку .ptf
 	print("Загрузка документа из: %s" % path)
+#Добвили наш код
+# === UI Integration ===
+
+func _on_new_document() -> void:
+	_create_new_document()
+
+func _on_open_image(path: String) -> void:
+	open_image(path)
+
+func _on_save_document(path: String) -> void:
+	save_document(path)
+
+func _on_load_document(path: String) -> void:
+	load_document(path)
+
+# Переопределяем save_document и load_document
+func save_document(path: String) -> void:
+	var saver = DocumentSaver.new()
+	saver.save_completed.connect(_on_save_completed)
+	saver.save_failed.connect(_on_save_failed)
+	saver.save_document(_document, path)
+
+func load_document(path: String) -> void:
+	var loader = DocumentLoader.new()
+	loader.load_completed.connect(_on_load_completed)
+	loader.load_failed.connect(_on_load_failed)
+	loader.load_document(path)
+
+func _on_save_completed(path: String) -> void:
+	print("✅ Документ сохранён: %s" % path)
+
+func _on_save_failed(path: String, error: String) -> void:
+	print("❌ Ошибка сохранения: %s" % error)
+
+func _on_load_completed(document: Document, path: String) -> void:
+	_document = document
+	if _document.image_path and _document.image_path != "":
+		# Загружаем изображение
+		_image_loader.load_image(_document.image_path)
+	print("✅ Документ загружен: %s" % path)
+
+func _on_load_failed(path: String, error: String) -> void:
+	print("❌ Ошибка загрузки: %s" % error)
