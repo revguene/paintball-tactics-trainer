@@ -1,3 +1,4 @@
+class_name Camera
 extends RefCounted
 
 ## Камера для работы с видом на поле

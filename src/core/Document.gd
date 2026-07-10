@@ -1,107 +1,143 @@
+class_name Document
 extends RefCounted
 
-## Документ проекта .ptf
-## Содержит всё состояние редактора
+const CURRENT_VERSION := 1
 
-signal image_changed(image_path: String)
-signal camera_changed(camera_position: Vector2, zoom: float)
-signal layer_added(layer: Layer)
-signal layer_removed(layer: Layer)
-signal layer_visibility_changed(layer: Layer, visible: bool)
+var uuid: String
+var name: String
+var version: int
 
-var workspace_name: String = ""
-var author: String = ""
-var created: String = ""
-var modified: String = ""
+# Относительный путь к изображению поля
+var image_path: String
 
-var image_path: String = ""
-var image_texture: Texture2D = null
-var image_size: Vector2 = Vector2.ZERO
+# Список слоёв (теперь с типом!)
+var layers: Array[Layer]
 
-var camera: Camera = null
-var layers: Array[Layer] = []
+# Состояние камеры
+var camera_position: Vector2
+var camera_zoom: float
 
-var is_dirty: bool = false
+# Метаданные
+var metadata := {
+	"author": "",
+	"created": "",
+	"modified": "",
+	"description": ""
+}
 
-func _init():
-	camera = Camera.new()
-	created = Time.get_datetime_string_from_system()
-	modified = created
-	
-	# Создаём стандартные слои
-	var image_layer = Layer.new()
-	image_layer.name = "Image"
-	image_layer.type = "image"
-	image_layer.locked = true
-	layers.append(image_layer)
-	
-	var geometry_layer = Layer.new()
-	geometry_layer.name = "Geometry"
-	geometry_layer.type = "geometry"
-	layers.append(geometry_layer)
-	
-	var players_layer = Layer.new()
-	players_layer.name = "Players"
-	players_layer.type = "tokens"
-	layers.append(players_layer)
-	
-	var rays_layer = Layer.new()
-	rays_layer.name = "Rays"
-	rays_layer.type = "rays"
-	rays_layer.opacity = 0.8
-	layers.append(rays_layer)
+# Есть ли несохранённые изменения
+var modified: bool = false
 
-func set_image(path: String, texture: Texture2D) -> void:
-	image_path = path
-	image_texture = texture
-	image_size = Vector2(texture.get_width(), texture.get_height())
-	is_dirty = true
-	image_changed.emit(path)
 
-func get_layer(name: String) -> Layer:
+func _init() -> void:
+	uuid = _generate_uuid()
+	name = "Untitled"
+	version = CURRENT_VERSION
+	image_path = ""
+	layers = []
+
+	camera_position = Vector2.ZERO
+	camera_zoom = 1.0
+
+
+func add_layer(layer: Layer) -> void:
+	if layer == null:
+		return
+
+	layers.append(layer)
+	mark_modified()
+
+
+func remove_layer(layer: Layer) -> bool:
+	if not layers.has(layer):
+		return false
+
+	layers.erase(layer)
+	mark_modified()
+	return true
+
+
+func get_layer_by_name(layer_name: String) -> Layer:
 	for layer in layers:
-		if layer.name == name:
+		if layer.name == layer_name:
 			return layer
+
 	return null
 
-func to_dict() -> Dictionary:
-	var layers_data = []
+
+func mark_modified() -> void:
+	modified = true
+
+
+func clear_modified() -> void:
+	modified = false
+
+
+func to_dictionary() -> Dictionary:
+	var layer_data := []
+
 	for layer in layers:
-		layers_data.append(layer.to_dict())
-	
+		layer_data.append(layer.to_dictionary())
+
 	return {
-		"version": "1.0",
-		"workspace": {
-			"name": workspace_name,
-			"author": author,
-			"created": created,
-			"modified": modified
+		"version": version,
+		"uuid": uuid,
+		"name": name,
+		"image_path": image_path,
+		"camera": {
+			"position": {
+				"x": camera_position.x,
+				"y": camera_position.y
+			},
+			"zoom": camera_zoom
 		},
-		"image": {
-			"path": image_path,
-			"width": image_size.x,
-			"height": image_size.y,
-			"scale": 1.0
-		},
-		"layers": layers_data,
-		"camera": camera.to_dict()
+		"layers": layer_data,
+		"metadata": metadata
 	}
 
-func from_dict(data: Dictionary) -> void:
-	workspace_name = data.get("workspace", {}).get("name", "")
-	author = data.get("workspace", {}).get("author", "")
-	created = data.get("workspace", {}).get("created", "")
-	modified = data.get("workspace", {}).get("modified", "")
+
+func from_dictionary(data: Dictionary) -> void:
+	version = data.get("version", CURRENT_VERSION)
+	uuid = data.get("uuid", _generate_uuid())
+	name = data.get("name", "Untitled")
+	image_path = data.get("image_path", "")
+
+	var camera_data = data.get("camera", {})
 	
-	var image_data = data.get("image", {})
-	image_path = image_data.get("path", "")
-	image_size = Vector2(image_data.get("width", 0), image_data.get("height", 0))
+	# Правильно загружаем Vector2 из словаря
+	var pos_data = camera_data.get("position", {"x": 0, "y": 0})
+	if pos_data is Vector2:
+		camera_position = pos_data
+	else:
+		camera_position = Vector2(
+			pos_data.get("x", 0.0),
+			pos_data.get("y", 0.0)
+		)
 	
+	camera_zoom = camera_data.get("zoom", 1.0)
+
+	metadata = data.get("metadata", metadata)
+
+	# Загружаем слои
+	layers = []
 	var layers_data = data.get("layers", [])
-	layers.clear()
 	for layer_data in layers_data:
 		var layer = Layer.new()
-		layer.from_dict(layer_data)
+		layer.from_dictionary(layer_data)
 		layers.append(layer)
-	
-	camera.from_dict(data.get("camera", {}))
+
+	modified = false
+
+
+func _generate_uuid() -> String:
+	return str(Time.get_unix_time_from_system()) + "_" + str(randi())
+
+
+# === Serialization ===
+
+func save(path: String) -> Error:
+	return ProjectSerializer.save_document(self, path)
+
+
+static func load(path: String) -> Document:
+	return ProjectSerializer.load_document(path)

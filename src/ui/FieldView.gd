@@ -1,7 +1,5 @@
-extends Node2D
 class_name FieldView
-
-## Отображение поля с изображением
+extends Node2D
 
 signal image_set(texture: Texture2D)
 signal image_cleared()
@@ -17,24 +15,27 @@ func _setup_sprite() -> void:
 	_image_sprite.centered = false
 	add_child(_image_sprite)
 
-## Установить изображение
 func set_image(texture: Texture2D) -> void:
 	_image_texture = texture
 	_image_sprite.texture = texture
+	# Устанавливаем масштаб 1:1
+	_image_sprite.scale = Vector2(1, 1)
 	image_set.emit(texture)
 
-## Очистить изображение
 func clear_image() -> void:
 	_image_texture = null
 	_image_sprite.texture = null
 	image_cleared.emit()
 
-## Получить размер изображения
 func get_image_size() -> Vector2:
 	if _image_texture:
 		return Vector2(_image_texture.get_width(), _image_texture.get_height())
 	return Vector2.ZERO
 
-## Есть ли изображение
 func has_image() -> bool:
 	return _image_texture != null
+
+# Новый метод для масштабирования спрайта
+func set_sprite_scale(scale: Vector2) -> void:
+	if _image_sprite:
+		_image_sprite.scale = scale

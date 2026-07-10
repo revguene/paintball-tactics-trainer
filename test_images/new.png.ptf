@@ -1,0 +1,62 @@
+{
+	"camera": {
+		"bounds": [
+			0.0,
+			0.0,
+			1920.0,
+			1080.0
+		],
+		"position": [
+			0.0,
+			0.0
+		],
+		"zoom": 1.0
+	},
+	"image": {
+		"height": 438.0,
+		"path": "/home/ubuntu/Pictures/Screenshots/Screenshot from 2026-07-05 18-52-36.png",
+		"scale": 1.0,
+		"width": 552.0
+	},
+	"layers": [
+		{
+			"id": "1783637051.57101",
+			"locked": true,
+			"name": "Image",
+			"opacity": 1.0,
+			"type": "image",
+			"visible": true
+		},
+		{
+			"id": "1783637051.57102",
+			"locked": false,
+			"name": "Geometry",
+			"opacity": 1.0,
+			"type": "geometry",
+			"visible": true
+		},
+		{
+			"id": "1783637051.57104",
+			"locked": false,
+			"name": "Players",
+			"opacity": 1.0,
+			"type": "tokens",
+			"visible": true
+		},
+		{
+			"id": "1783637051.57105",
+			"locked": false,
+			"name": "Rays",
+			"opacity": 0.8,
+			"type": "rays",
+			"visible": true
+		}
+	],
+	"version": "1.0",
+	"workspace": {
+		"author": "",
+		"created": "2026-07-10T01:44:11",
+		"modified": "2026-07-10T01:44:11",
+		"name": ""
+	}
+}

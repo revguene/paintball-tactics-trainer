@@ -1,23 +1,20 @@
 extends Node2D
 
+@onready var field_image: Sprite2D = $Field/FieldImage
+@onready var background: ColorRect = $UI/Background
+@onready var title: Label = $UI/Title
+@onready var subtitle: Label = $UI/Subtitle
+@onready var hint: Label = $UI/Hint
+
 var _document: Document = null
-var _image_loader: ImageLoader = null
-var _field_view: FieldView = null
 
 func _ready() -> void:
 	print("Paintball Tactical Editor v0.1.0")
 	print("Sprint 2 - Image Import & Document Editor")
 	
 	_document = Document.new()
-	_image_loader = ImageLoader.new()
-	_field_view = $FieldView
+	_document.name = "Untitled"
 	
-	_image_loader.image_loaded.connect(_on_image_loaded)
-	_image_loader.image_load_failed.connect(_on_image_load_failed)
-	
-	_create_new_document()
-	
-	# Подключаем MainMenu
 	var ui = $UI
 	if ui:
 		var main_menu = ui.get_node("MainMenu")
@@ -27,24 +24,34 @@ func _ready() -> void:
 			main_menu.load_document.connect(_on_load_document)
 			print("✅ MainMenu подключён")
 
-func _create_new_document() -> void:
-	_document = Document.new()
-	if _field_view:
-		_field_view.clear_image()
-	print("Создан новый документ")
-
-func _on_image_loaded(path: String, texture: Texture2D) -> void:
+func load_field(path: String) -> void:
+	var texture := ImageLoader.load_texture(path)
+	
+	if texture == null:
+		print("❌ Не удалось загрузить изображение: %s" % path)
+		return
+	
+	# Скрываем приветственный экран
+	background.visible = false
+	title.visible = false
+	subtitle.visible = false
+	hint.visible = false
+	
+	field_image.texture = texture
+	field_image.centered = true
 	_document.image_path = path
-	_field_view.set_image(texture)
 	_fit_image_to_view()
-	print("Изображение загружено: %s" % path)
-
-func _on_image_load_failed(path: String, error: String) -> void:
-	print("Ошибка загрузки: %s - %s" % [path, error])
+	print("✅ Изображение загружено: %s" % path)
 
 func _fit_image_to_view() -> void:
+	if field_image.texture == null:
+		return
+	
 	var viewport_size = get_viewport().get_visible_rect().size
-	var image_size = _field_view.get_image_size()
+	var image_size = Vector2(
+		field_image.texture.get_width(),
+		field_image.texture.get_height()
+	)
 	
 	if image_size == Vector2.ZERO:
 		return
@@ -53,22 +60,16 @@ func _fit_image_to_view() -> void:
 	var scale_y = viewport_size.y / image_size.y
 	var fit_scale = min(scale_x, scale_y) * 0.85
 	
-	_field_view.set_sprite_scale(Vector2(fit_scale, fit_scale))
+	field_image.scale = Vector2(fit_scale, fit_scale)
+	field_image.position = viewport_size / 2
 	
-	# Камера теперь управляется через CameraController
 	var camera = $Camera2D
 	if camera:
 		camera.position = viewport_size / 2
 		camera.zoom = Vector2(1, 1)
-	
-	print("Масштаб спрайта: %s" % fit_scale)
-
-func open_image(path: String) -> void:
-	if _image_loader:
-		_image_loader.load_image(path)
 
 func _on_open_image(path: String) -> void:
-	open_image(path)
+	load_field(path)
 
 func _on_save_document(path: String) -> void:
 	save_document(path)
@@ -77,28 +78,18 @@ func _on_load_document(path: String) -> void:
 	load_document(path)
 
 func save_document(path: String) -> void:
-	var saver = DocumentSaver.new()
-	saver.save_completed.connect(_on_save_completed)
-	saver.save_failed.connect(_on_save_failed)
-	saver.save_document(_document, path)
+	var err = _document.save(path)
+	if err == OK:
+		print("✅ Документ сохранён: %s" % path)
+	else:
+		print("❌ Ошибка сохранения: %s" % err)
 
 func load_document(path: String) -> void:
-	var loader = DocumentLoader.new()
-	loader.load_completed.connect(_on_load_completed)
-	loader.load_failed.connect(_on_load_failed)
-	loader.load_document(path)
-
-func _on_save_completed(path: String) -> void:
-	print("✅ Документ сохранён: %s" % path)
-
-func _on_save_failed(path: String, error: String) -> void:
-	print("❌ Ошибка сохранения: %s" % error)
-
-func _on_load_completed(document: Document, path: String) -> void:
-	_document = document
-	if _document.image_path and _document.image_path != "":
-		_image_loader.load_image(_document.image_path)
-	print("✅ Документ загружен: %s" % path)
-
-func _on_load_failed(path: String, error: String) -> void:
-	print("❌ Ошибка загрузки: %s" % error)
+	var loaded := Document.load(path)
+	if loaded:
+		_document = loaded
+		if _document.image_path and _document.image_path != "":
+			load_field(_document.image_path)
+		print("✅ Документ загружен: %s" % path)
+	else:
+		print("❌ Ошибка загрузки документа: %s" % path)

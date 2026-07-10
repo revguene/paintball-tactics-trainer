@@ -1,3 +1,4 @@
+class_name Entity
 extends RefCounted
 
 ## Базовый класс для всех объектов на поле
