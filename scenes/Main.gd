@@ -1,7 +1,5 @@
 extends Node2D
 
-## Главная сцена редактора
-
 var _document: Document = null
 var _image_loader: ImageLoader = null
 var _field_view: FieldView = null
@@ -10,41 +8,39 @@ func _ready() -> void:
 	print("Paintball Tactical Editor v0.1.0")
 	print("Sprint 2 - Image Import & Document Editor")
 	
-	# Инициализация
 	_document = Document.new()
 	_image_loader = ImageLoader.new()
 	_field_view = $FieldView
 	
-	# Подключение сигналов
 	_image_loader.image_loaded.connect(_on_image_loaded)
 	_image_loader.image_load_failed.connect(_on_image_load_failed)
 	
-	# Настройка камеры
-	var camera = $Camera2D
-	if camera:
-		camera.position = get_viewport().get_visible_rect().size / 2
-		camera.zoom = Vector2(1, 1)
-	
-	# Создаём новый документ
 	_create_new_document()
+	
+	# Подключаем MainMenu
+	var ui = $UI
+	if ui:
+		var main_menu = ui.get_node("MainMenu")
+		if main_menu:
+			main_menu.open_image.connect(_on_open_image)
+			main_menu.save_document.connect(_on_save_document)
+			main_menu.load_document.connect(_on_load_document)
+			print("✅ MainMenu подключён")
 
 func _create_new_document() -> void:
 	_document = Document.new()
-	_field_view.clear_image()
+	if _field_view:
+		_field_view.clear_image()
 	print("Создан новый документ")
 
 func _on_image_loaded(path: String, texture: Texture2D) -> void:
-	_document.set_image(path, texture)
+	_document.image_path = path
 	_field_view.set_image(texture)
-	
-	# Масштабируем изображение под размер окна
 	_fit_image_to_view()
-	
 	print("Изображение загружено: %s" % path)
 
 func _on_image_load_failed(path: String, error: String) -> void:
 	print("Ошибка загрузки: %s - %s" % [path, error])
-	# TODO: Показать сообщение пользователю
 
 func _fit_image_to_view() -> void:
 	var viewport_size = get_viewport().get_visible_rect().size
@@ -53,51 +49,23 @@ func _fit_image_to_view() -> void:
 	if image_size == Vector2.ZERO:
 		return
 	
-	# Вычисляем масштаб чтобы изображение поместилось в окно
 	var scale_x = viewport_size.x / image_size.x
 	var scale_y = viewport_size.y / image_size.y
-	var fit_scale = min(scale_x, scale_y) * 0.9  # 0.9 для отступа
+	var fit_scale = min(scale_x, scale_y) * 0.85
 	
+	_field_view.set_sprite_scale(Vector2(fit_scale, fit_scale))
+	
+	# Камера теперь управляется через CameraController
 	var camera = $Camera2D
 	if camera:
-		camera.zoom = Vector2(fit_scale, fit_scale)
 		camera.position = viewport_size / 2
-
-func _input(event: InputEvent) -> void:
-	# Zoom колесиком мыши
-	if event is InputEventMouseButton:
-		var camera = $Camera2D
-		if camera and _field_view.has_image():
-			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-				camera.zoom *= 1.1
-			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-				camera.zoom *= 0.9
-				camera.zoom = camera.zoom.clamp(Vector2(0.1, 0.1), Vector2(10, 10))
+		camera.zoom = Vector2(1, 1)
 	
-	# Pan (перемещение) средней кнопкой мыши
-	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
-		var camera = $Camera2D
-		if camera:
-			camera.position -= event.relative / camera.zoom
+	print("Масштаб спрайта: %s" % fit_scale)
 
-## Открыть изображение (вызывается из меню)
 func open_image(path: String) -> void:
-	_image_loader.load_image(path)
-
-## Сохранить документ (вызывается из меню)
-func save_document(path: String) -> void:
-	# TODO: Реализовать сохранение .ptf
-	print("Сохранение документа в: %s" % path)
-
-## Загрузить документ (вызывается из меню)
-func load_document(path: String) -> void:
-	# TODO: Реализовать загрузку .ptf
-	print("Загрузка документа из: %s" % path)
-#Добвили наш код
-# === UI Integration ===
-
-func _on_new_document() -> void:
-	_create_new_document()
+	if _image_loader:
+		_image_loader.load_image(path)
 
 func _on_open_image(path: String) -> void:
 	open_image(path)
@@ -108,7 +76,6 @@ func _on_save_document(path: String) -> void:
 func _on_load_document(path: String) -> void:
 	load_document(path)
 
-# Переопределяем save_document и load_document
 func save_document(path: String) -> void:
 	var saver = DocumentSaver.new()
 	saver.save_completed.connect(_on_save_completed)
@@ -130,7 +97,6 @@ func _on_save_failed(path: String, error: String) -> void:
 func _on_load_completed(document: Document, path: String) -> void:
 	_document = document
 	if _document.image_path and _document.image_path != "":
-		# Загружаем изображение
 		_image_loader.load_image(_document.image_path)
 	print("✅ Документ загружен: %s" % path)
 
