@@ -1,0 +1,93 @@
+{
+	"bunkers": [
+		{
+			"id": 1,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 10.4952068328857,
+			"y": 22.9921875
+		},
+		{
+			"id": 2,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 34.5047912597656,
+			"y": 22.9921875
+		},
+		{
+			"id": 3,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 10.4233207702637,
+			"y": 12.5859375
+		},
+		{
+			"id": 4,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 34.5766792297363,
+			"y": 12.5859375
+		},
+		{
+			"id": 5,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 13.5862617492676,
+			"y": 8.7890625
+		},
+		{
+			"id": 6,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 31.4137363433838,
+			"y": 8.7890625
+		},
+		{
+			"id": 7,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 14.8801908493042,
+			"y": 25.8046875
+		},
+		{
+			"id": 8,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 30.1198081970215,
+			"y": 25.8046875
+		}
+	],
+	"field": {
+		"corners": {
+			"bottom_left": [
+				429.604156494141,
+				969.35791015625
+			],
+			"bottom_right": [
+				1468.91564941406,
+				974.31201171875
+			],
+			"top_left": [
+				439.518096923828,
+				123.853225708008
+			],
+			"top_right": [
+				1473.87268066406,
+				130.458724975586
+			]
+		},
+		"height": 36.0,
+		"width": 45.0
+	},
+	"image": "",
+	"name": "Untitled",
+	"version": 1
+}

@@ -1,0 +1,157 @@
+{
+	"bunkers": [
+		{
+			"id": 1,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 11.1235933303833,
+			"y": 17.6385536193848
+		},
+		{
+			"id": 2,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 33.876407623291,
+			"y": 17.6385536193848
+		},
+		{
+			"id": 3,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 5.48956537246704,
+			"y": 21.7590370178223
+		},
+		{
+			"id": 4,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 39.5104293823242,
+			"y": 21.7590370178223
+		},
+		{
+			"id": 5,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 5.77849340438843,
+			"y": 12.8674688339233
+		},
+		{
+			"id": 6,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 39.221508026123,
+			"y": 12.8674688339233
+		},
+		{
+			"id": 7,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 1.87801122665405,
+			"y": 17.7108421325684
+		},
+		{
+			"id": 8,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 43.1219902038574,
+			"y": 17.7108421325684
+		},
+		{
+			"id": 9,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 2.09470462799072,
+			"y": 2.67469882965088
+		},
+		{
+			"id": 10,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 42.9052963256836,
+			"y": 2.67469882965088
+		},
+		{
+			"id": 11,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 3.17817282676697,
+			"y": 7.51807165145874
+		},
+		{
+			"id": 12,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 41.8218269348145,
+			"y": 7.51807165145874
+		},
+		{
+			"id": 13,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 5.56179761886597,
+			"y": 26.891565322876
+		},
+		{
+			"id": 14,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 39.4382057189941,
+			"y": 26.891565322876
+		},
+		{
+			"id": 15,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 5.20064258575439,
+			"y": 32.3855400085449
+		},
+		{
+			"id": 16,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 39.7993583679199,
+			"y": 32.3855400085449
+		}
+	],
+	"field": {
+		"corners": {
+			"bottom_left": [
+				439.518096923828,
+				952.844116210938
+			],
+			"bottom_right": [
+				1480.48193359375,
+				952.844116210938
+			],
+			"top_left": [
+				441.170379638672,
+				130.458724975586
+			],
+			"top_right": [
+				1470.56799316406,
+				132.110092163086
+			]
+		},
+		"height": 36.0,
+		"width": 45.0
+	},
+	"image": "/home/ubuntu/Pictures/Screenshots/Screenshot from 2026-07-05 18-34-06.png",
+	"name": "Untitled",
+	"version": 1
+}

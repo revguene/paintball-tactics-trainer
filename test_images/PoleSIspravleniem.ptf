@@ -1,0 +1,20 @@
+{
+	"camera": {
+		"position": {
+			"x": 0.0,
+			"y": 0.0
+		},
+		"zoom": 1.0
+	},
+	"image_path": "/home/ubuntu/Pictures/Screenshots/Screenshot from 2026-07-05 18-52-36.png",
+	"layers": [],
+	"metadata": {
+		"author": "",
+		"created": "",
+		"description": "",
+		"modified": ""
+	},
+	"name": "Untitled",
+	"uuid": "1783710800.6115_797281621",
+	"version": 1
+}

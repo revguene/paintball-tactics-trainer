@@ -1,0 +1,237 @@
+{
+	"bunkers": [
+		{
+			"id": 1,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 2,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 3,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 4,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 5,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 6,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 7,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 8,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 9,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 10,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 11,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 12,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 13,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 14,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 15,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 16,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"id": 17,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 7.40322685241699,
+			"y": 17.509729385376
+		},
+		{
+			"id": 18,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 37.5967712402344,
+			"y": 17.509729385376
+		},
+		{
+			"id": 19,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 10.3790321350098,
+			"y": 23.6031131744385
+		},
+		{
+			"id": 20,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 34.6209678649902,
+			"y": 23.6031131744385
+		},
+		{
+			"id": 21,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 2.54032421112061,
+			"y": 23.9533081054688
+		},
+		{
+			"id": 22,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 42.4596748352051,
+			"y": 23.9533081054688
+		},
+		{
+			"id": 23,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 0.362904995679855,
+			"y": 30.1167316436768
+		},
+		{
+			"id": 24,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 44.6370964050293,
+			"y": 30.1167316436768
+		},
+		{
+			"id": 25,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 2.25000071525574,
+			"y": 33.9688720703125
+		},
+		{
+			"id": 26,
+			"rotation": 0,
+			"type": "Unknown",
+			"visible": true,
+			"x": 42.75,
+			"y": 33.9688720703125
+		}
+	],
+	"field": {
+		"corners": {
+			"bottom_left": [
+				424.647186279297,
+				962.752319335938
+			],
+			"bottom_right": [
+				1467.26330566406,
+				944.587280273438
+			],
+			"top_left": [
+				431.256439208984,
+				113.944961547852
+			],
+			"top_right": [
+				1455.69702148438,
+				118.89909362793
+			]
+		},
+		"height": 36.0,
+		"width": 45.0
+	},
+	"image": "/home/ubuntu/Projects/paintball-tactics-trainer/test_images/Screenshot from 2026-07-05 18-34-06.png",
+	"name": "Untitled",
+	"version": 1
+}

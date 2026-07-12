@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=8 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scenes/Main.gd" id="1_main"]
 [ext_resource type="Script" path="res://src/ui/FieldView.gd" id="2_field_view"]
 [ext_resource type="Script" path="res://src/ui/MainMenu.gd" id="3_main_menu"]
 [ext_resource type="Script" path="res://src/editor/CameraController.gd" id="4_camera"]
+[ext_resource type="Script" path="res://src/editor/FieldEditor.gd" id="5_field_editor"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -35,9 +36,9 @@ color = Color(0.08, 0.08, 0.12, 1)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
-anchor_top = 0.40
+anchor_top = 0.35
 anchor_right = 0.5
-anchor_bottom = 0.40
+anchor_bottom = 0.35
 offset_left = -550.0
 offset_top = -70.0
 offset_right = 550.0
@@ -54,16 +55,16 @@ theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
-anchor_top = 0.52
+anchor_top = 0.47
 anchor_right = 0.5
-anchor_bottom = 0.52
+anchor_bottom = 0.47
 offset_left = -400.0
 offset_top = -40.0
 offset_right = 400.0
 offset_bottom = 40.0
 grow_horizontal = 2
 grow_vertical = 2
-text = "Sprint 2 — Image Import"
+text = "Sprint 4 — Field Editor"
 horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 50
@@ -73,16 +74,16 @@ theme_override_colors/font_color = Color(0.5, 0.7, 0.9, 1)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
-anchor_top = 0.62
+anchor_top = 0.58
 anchor_right = 0.5
-anchor_bottom = 0.62
-offset_left = -300.0
-offset_top = -25.0
-offset_right = 300.0
-offset_bottom = 25.0
+anchor_bottom = 0.58
+offset_left = -500.0
+offset_top = -30.0
+offset_right = 500.0
+offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
-text = "Нажмите «📂 Open Image» чтобы загрузить поле"
+text = "2 — Add Bunker | 1 — Select | Колесо — Zoom | Пробел+ЛКМ — Pan"
 horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 22
@@ -93,6 +94,9 @@ layout_mode = 1
 anchors_preset = 0
 offset_left = 10.0
 offset_top = 10.0
-offset_right = 650.0
+offset_right = 850.0
 offset_bottom = 70.0
 script = ExtResource("3_main_menu")
+
+[node name="FieldEditor" type="Node2D" parent="."]
+script = ExtResource("5_field_editor")
