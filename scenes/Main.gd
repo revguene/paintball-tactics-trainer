@@ -74,12 +74,12 @@ func is_game() -> bool:
 func _on_edit_field_signal() -> void:
 	enter_field_editor()
 
-func _on_save_project() -> void:
-	save_document("user://project.ptf")
+func _on_save_project(path: String) -> void:
+	save_document(path)
 
-func _on_load_project() -> void:
+func _on_load_project(path: String) -> void:
 	enter_tactical_editor()
-	load_document("user://project.ptf")
+	load_document(path)
 
 func _on_game_mode() -> void:
 	enter_game()
@@ -281,7 +281,6 @@ func load_document(path: String) -> void:
 		bunker.id = data.get("id", restored_count + 1)
 		bunker.mirror_id = data.get("mirror_id", -1)
 		
-		# Преобразуем тип из строки в enum
 		var type_str = data.get("type_name", "Giant Block")
 		var found_type = BunkerType.Type.GIANT_BLOCK
 		for t in BunkerType.get_all_types():
