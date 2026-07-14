@@ -21,7 +21,7 @@ func set_corners(tl: Vector2, tr: Vector2, br: Vector2, bl: Vector2):
 func set_center(center: Vector2):
 	center_pixel = center
 	calibrated = true
-	print("✅ Калибровка завершена (4 угла + центр)")
+	print("✅ Калибровка завершена")
 	print("   CENTER: %s" % center_pixel)
 
 func screen_to_field(point: Vector2) -> Vector2:
@@ -30,6 +30,9 @@ func screen_to_field(point: Vector2) -> Vector2:
 	
 	var width_px = top_right.x - top_left.x
 	var height_px = bottom_left.y - top_left.y
+	
+	if width_px <= 0 or height_px <= 0:
+		return Vector2.ZERO
 	
 	var x = ((point.x - top_left.x) / width_px) * WIDTH
 	var y = ((point.y - top_left.y) / height_px) * HEIGHT
@@ -43,20 +46,23 @@ func field_to_screen(point: Vector2) -> Vector2:
 	var width_px = top_right.x - top_left.x
 	var height_px = bottom_left.y - top_left.y
 	
+	if width_px <= 0 or height_px <= 0:
+		return Vector2.ZERO
+	
 	var x = top_left.x + (point.x / WIDTH) * width_px
 	var y = top_left.y + (point.y / HEIGHT) * height_px
 	
 	return Vector2(x, y)
 
-func is_point_inside(point: Vector2) -> bool:
-	if !calibrated:
-		return false
+func is_point_inside_metric(point: Vector2) -> bool:
 	return point.x >= 0.0 and point.x <= WIDTH and point.y >= 0.0 and point.y <= HEIGHT
 
 func get_center_pixel() -> Vector2:
 	return center_pixel
 
-# Зеркалирование ТОЛЬКО относительно центральной линии (в пикселях!)
+func get_center_metric() -> Vector2:
+	return Vector2(WIDTH / 2, HEIGHT / 2)
+
 func mirror_screen_position(pos: Vector2) -> Vector2:
 	if !calibrated:
 		return Vector2.ZERO

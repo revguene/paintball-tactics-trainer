@@ -4,7 +4,7 @@ extends RefCounted
 var version: int = 1
 var name: String = "Untitled"
 var image_path: String = ""
-var image_data: String = ""  # base64
+var image_data: String = ""
 
 # Калибровка
 var top_left: Vector2 = Vector2.ZERO
@@ -14,22 +14,23 @@ var bottom_left: Vector2 = Vector2.ZERO
 var center_pixel: Vector2 = Vector2.ZERO
 var calibrated: bool = false
 
-# Данные поля
 var field_width: float = 45.0
 var field_height: float = 36.0
 
-# Список укрытий (чистые данные, не Node!)
+# Данные
 var bunkers: Array = []  # Массив словарей
+var players: Array = []  # Массив словарей ← ДОБАВЛЕНО!
 
 func set_corners(tl: Vector2, tr: Vector2, br: Vector2, bl: Vector2) -> void:
 	top_left = tl
 	top_right = tr
 	bottom_right = br
 	bottom_left = bl
-	calibrated = true
+	calibrated = false
 
 func set_center(center: Vector2) -> void:
 	center_pixel = center
+	calibrated = true
 
 func add_bunker(bunker_data: Dictionary) -> void:
 	bunkers.append(bunker_data)
@@ -58,7 +59,8 @@ func to_dictionary() -> Dictionary:
 			"center_pixel": [center_pixel.x, center_pixel.y],
 			"calibrated": calibrated
 		},
-		"bunkers": bunkers
+		"bunkers": bunkers,
+		"players": players  # ← ДОБАВЛЕНО!
 	}
 
 func from_dictionary(data: Dictionary) -> void:
@@ -86,3 +88,4 @@ func from_dictionary(data: Dictionary) -> void:
 	calibrated = calib.get("calibrated", false)
 	
 	bunkers = data.get("bunkers", [])
+	players = data.get("players", [])  # ← ДОБАВЛЕНО!

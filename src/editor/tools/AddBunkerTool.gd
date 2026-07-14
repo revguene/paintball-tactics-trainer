@@ -40,20 +40,20 @@ func _input(event: InputEvent) -> void:
 		
 		var field_pos = field.screen_to_field(screen_pos)
 		
-		if not field.is_point_inside(field_pos):
-			print("⚠️ Точка за пределами поля!")
+		if not field.is_point_inside_metric(field_pos):
+			print("⚠️ Точка за пределами поля! (%.2f, %.2f)" % [field_pos.x, field_pos.y])
 			return
 		
 		var global_pos = editor.get_global_mouse_position()
 		type_menu.show_menu(global_pos)
-		_current_pos = screen_pos
+		_current_screen_pos = screen_pos
 		_current_field_pos = field_pos
 
-var _current_pos: Vector2 = Vector2.ZERO
+var _current_screen_pos: Vector2 = Vector2.ZERO
 var _current_field_pos: Vector2 = Vector2.ZERO
 
 func _on_type_selected(type: int) -> void:
-	_create_bunker(_current_pos, _current_field_pos, type)
+	_create_bunker(_current_screen_pos, _current_field_pos, type)
 	if editor.has_method("set_tool"):
 		editor.set_tool("Select")
 
@@ -72,19 +72,19 @@ func _create_bunker(screen_pos: Vector2, field_pos: Vector2, type: int) -> void:
 	first.rotation = 0
 	editor.add_child(first)
 	first.queue_redraw()
-	print("✅ Бункер %s создан на позиции: %.2f м, %.2f м" % [BunkerType.get_display_name(type), field_pos.x, field_pos.y])
+	print("✅ Бункер %s создан на позиции: (%.2f, %.2f) м" % [BunkerType.get_display_name(type), field_pos.x, field_pos.y])
 	
-	# Зеркальный бункер — ТОЛЬКО относительно центральной линии (без WIDTH!)
+	# Зеркальный бункер
 	var mirror_screen_pos = field.mirror_screen_position(screen_pos)
 	var mirror_field_pos = field.screen_to_field(mirror_screen_pos)
 	
-	if field.is_point_inside(mirror_field_pos):
+	if field.is_point_inside_metric(mirror_field_pos):
 		var mirror = Bunker.new()
 		mirror.position = mirror_screen_pos
-		mirror.field_position = mirror_field_pos
+		mirror.field_position = mirror_field_pos  # ← Важно: позиция в метрах!
 		mirror.id = _generate_id()
 		mirror.bunker_type = type
-		mirror.is_mirror = true
+		mirror.is_mirror = true  # ← Отмечаем как зеркальный
 		mirror.rotation = 0
 		
 		mirror.mirror_id = first.id
@@ -92,7 +92,7 @@ func _create_bunker(screen_pos: Vector2, field_pos: Vector2, type: int) -> void:
 		
 		editor.add_child(mirror)
 		mirror.queue_redraw()
-		print("✅ Зеркальный бункер %s создан на позиции: %.2f м, %.2f м" % [BunkerType.get_display_name(type), mirror_field_pos.x, mirror_field_pos.y])
+		print("✅ Зеркальный бункер %s создан на позиции: (%.2f, %.2f) м" % [BunkerType.get_display_name(type), mirror_field_pos.x, mirror_field_pos.y])
 	else:
 		print("⚠️ Зеркальная точка за пределами поля!")
 

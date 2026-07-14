@@ -62,8 +62,8 @@ const DATA := {
 	BunkerType.Type.CAKE_TAIL: {
 		"name": "Cake Tail",
 		"shape": "rect",
-		"width": 2.30,
-		"height": 1.20
+		"width": 1.50,
+		"height": 1.00
 	},
 	BunkerType.Type.DORITO_SMALL: {
 		"name": "Dorito Small",
@@ -78,8 +78,8 @@ const DATA := {
 	BunkerType.Type.SNAKE_BEAM: {
 		"name": "Snake Beam",
 		"shape": "rect",
-		"width": 3.70,
-		"height": 0.70
+		"width": 3.00,
+		"height": 0.50
 	},
 	BunkerType.Type.SNAKE_SMALL: {
 		"name": "Snake Small",
@@ -96,7 +96,7 @@ const DATA := {
 	BunkerType.Type.BRICK: {
 		"name": "Brick",
 		"shape": "rect",
-		"width": 1.90,      # Было 2.00, стало 1.90
+		"width": 1.90,
 		"height": 1.00
 	}
 }

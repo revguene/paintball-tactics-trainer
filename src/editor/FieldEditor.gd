@@ -13,10 +13,12 @@ var tools: Dictionary = {}
 
 const SelectToolClass = preload("res://src/editor/tools/SelectTool.gd")
 const AddBunkerToolClass = preload("res://src/editor/tools/AddBunkerTool.gd")
+const PlayerToolClass = preload("res://src/editor/tools/PlayerTool.gd")
 
 func _ready() -> void:
 	tools[Tool.SELECT] = SelectToolClass.new(self)
 	tools[Tool.ADD_BUNKER] = AddBunkerToolClass.new(self)
+	tools[Tool.ADD_PLAYER] = PlayerToolClass.new(self)
 	
 	_set_tool(Tool.SELECT)
 	print("FieldEditor готов, инструмент: SELECT")
@@ -31,6 +33,8 @@ func set_tool(tool_name: String) -> void:
 			_set_tool(Tool.SELECT)
 		"AddBunker":
 			_set_tool(Tool.ADD_BUNKER)
+		"AddPlayer":
+			_set_tool(Tool.ADD_PLAYER)
 		_:
 			print("❌ Неизвестный инструмент: %s" % tool_name)
 

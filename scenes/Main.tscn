@@ -1,10 +1,11 @@
-[gd_scene load_steps=8 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=9 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scenes/Main.gd" id="1_main"]
 [ext_resource type="Script" path="res://src/ui/FieldView.gd" id="2_field_view"]
 [ext_resource type="Script" path="res://src/ui/MainMenu.gd" id="3_main_menu"]
 [ext_resource type="Script" path="res://src/editor/CameraController.gd" id="4_camera"]
 [ext_resource type="Script" path="res://src/editor/FieldEditor.gd" id="5_field_editor"]
+[ext_resource type="Script" path="res://src/editor/PlayerEditor.gd" id="6_player_editor"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -64,7 +65,7 @@ offset_right = 400.0
 offset_bottom = 40.0
 grow_horizontal = 2
 grow_vertical = 2
-text = "Sprint 4 — Field Editor"
+text = "Sprint 5 — Player Editor"
 horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 50
@@ -83,7 +84,7 @@ offset_right = 500.0
 offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
-text = "2 — Add Bunker | 1 — Select | Колесо — Zoom | Пробел+ЛКМ — Pan"
+text = "2 — Add Bunker | 3 — Add Player | 1 — Select | Колесо — Zoom | Пробел+ЛКМ — Pan"
 horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 22
@@ -100,3 +101,6 @@ script = ExtResource("3_main_menu")
 
 [node name="FieldEditor" type="Node2D" parent="."]
 script = ExtResource("5_field_editor")
+
+[node name="PlayerEditor" type="Node2D" parent="."]
+script = ExtResource("6_player_editor")

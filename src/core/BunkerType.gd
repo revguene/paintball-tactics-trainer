@@ -17,7 +17,7 @@ enum Type {
 	SNAKE_BEAM,
 	SNAKE_SMALL,
 	MINI_M,
-	BRICK          # Новое укрытие
+	BRICK
 }
 
 static func get_display_name(type: Type) -> String:

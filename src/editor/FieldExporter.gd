@@ -57,7 +57,7 @@ static func import_document(document: Document, field: Field, editor: FieldEdito
 		bunker.field_position = pos
 		bunker.id = data.get("id", 0)
 		bunker.mirror_id = data.get("mirror_id", -1)
-		bunker.bunker_type = data.get("type", BunkerType.Type.GIANT_BRICK)
+		bunker.bunker_type = data.get("type", BunkerType.Type.GIANT_BLOCK)
 		bunker.is_mirror = data.get("is_mirror", false)
 		bunker.rotation = data.get("rotation", 0.0)
 		

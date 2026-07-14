@@ -1,0 +1,2589 @@
+============================================
+PROJECT: Paintball Tactics Trainer
+SPRINT: 5 - Player Editor (FINAL)
+STATUS: Стабильная версия с игроками и лучами
+ОБНОВЛЕНО: Июль 2026
+============================================
+
+СТРУКТУРА ПРОЕКТА:
+============================================
+paintball-tactics-trainer/
+├── scenes/
+│   ├── Main.tscn
+│   └── Main.gd
+├── src/
+│   ├── core/
+│   │   ├── Bunker.gd
+│   │   ├── BunkerGeometry.gd
+│   │   ├── BunkerLibrary.gd
+│   │   ├── BunkerType.gd
+│   │   ├── Document.gd
+│   │   ├── Field.gd
+│   │   ├── Layer.gd
+│   │   ├── Player.gd
+│   │   └── RayCaster.gd
+│   ├── editor/
+│   │   ├── CameraController.gd
+│   │   ├── FieldEditor.gd
+│   │   ├── PlayerEditor.gd
+│   │   ├── PlayerVisual.gd
+│   │   └── tools/
+│   │       ├── AddBunkerTool.gd
+│   │       ├── BaseTool.gd
+│   │       └── SelectTool.gd
+│   ├── ui/
+│   │   ├── BunkerTypeMenu.gd
+│   │   ├── MainMenu.gd
+│   │   └── PlayerContextMenu.gd
+│   └── io/
+│       ├── ImageLoader.gd
+│       └── ProjectSerializer.gd
+├── assets/
+├── data/
+├── docs/
+└── test_images/
+
+============================================
+1. FIELD.gd - Калибровка и координаты (ОБНОВЛЕН)
+============================================
+class_name Field
+extends RefCounted
+
+const WIDTH := 45.0
+const HEIGHT := 36.0
+
+var top_left: Vector2
+var top_right: Vector2
+var bottom_right: Vector2
+var bottom_left: Vector2
+var center_pixel: Vector2
+var calibrated := false
+
+func set_corners(tl: Vector2, tr: Vector2, br: Vector2, bl: Vector2):
+	top_left = tl
+	top_right = tr
+	bottom_right = br
+	bottom_left = bl
+	calibrated = false
+
+func set_center(center: Vector2):
+	center_pixel = center
+	calibrated = true
+	print("✅ Калибровка завершена")
+	print("   CENTER: %s" % center_pixel)
+
+func screen_to_field(point: Vector2) -> Vector2:
+	if !calibrated:
+		return Vector2.ZERO
+	
+	var width_px = top_right.x - top_left.x
+	var height_px = bottom_left.y - top_left.y
+	
+	if width_px <= 0 or height_px <= 0:
+		return Vector2.ZERO
+	
+	var x = ((point.x - top_left.x) / width_px) * WIDTH
+	var y = ((point.y - top_left.y) / height_px) * HEIGHT
+	
+	return Vector2(clamp(x, 0.0, WIDTH), clamp(y, 0.0, HEIGHT))
+
+func field_to_screen(point: Vector2) -> Vector2:
+	if !calibrated:
+		return Vector2.ZERO
+	
+	var width_px = top_right.x - top_left.x
+	var height_px = bottom_left.y - top_left.y
+	
+	if width_px <= 0 or height_px <= 0:
+		return Vector2.ZERO
+	
+	var x = top_left.x + (point.x / WIDTH) * width_px
+	var y = top_left.y + (point.y / HEIGHT) * height_px
+	
+	return Vector2(x, y)
+
+# Проверка в метрах
+func is_point_inside_metric(point: Vector2) -> bool:
+	return point.x >= 0.0 and point.x <= WIDTH and point.y >= 0.0 and point.y <= HEIGHT
+
+func get_center_pixel() -> Vector2:
+	return center_pixel
+
+func get_center_metric() -> Vector2:
+	return Vector2(WIDTH / 2, HEIGHT / 2)
+
+func mirror_screen_position(pos: Vector2) -> Vector2:
+	if !calibrated:
+		return Vector2.ZERO
+	var dx = pos.x - center_pixel.x
+	return Vector2(center_pixel.x - dx, pos.y)
+
+============================================
+2. BUNKER.gd - Укрытие (геометрия + отрисовка)
+============================================
+class_name Bunker
+extends Node2D
+
+@export var id: int = 0
+@export var bunker_type: BunkerType.Type = BunkerType.Type.GIANT_BLOCK
+@export var mirror_id: int = -1
+@export var field_position: Vector2 = Vector2.ZERO
+@export var is_mirror: bool = false
+
+var selected := false
+var rotating := false
+var _geometry: BunkerGeometry = null
+
+const HANDLE_DISTANCE := 35.0
+const HANDLE_RADIUS := 12.0
+
+const COLOR_BLUE := Color(0.4, 0.6, 0.9, 1.0)
+const COLOR_RED := Color(0.85, 0.1, 0.1, 1.0)
+
+func get_color() -> Color:
+	match bunker_type:
+		BunkerType.Type.GIANT_BLOCK: return COLOR_BLUE
+		BunkerType.Type.GIANT_WING: return COLOR_BLUE
+		BunkerType.Type.MINI_M: return COLOR_BLUE
+		_: return COLOR_RED
+
+func _ready():
+	z_as_relative = false
+	z_index = 1000
+	_geometry = BunkerGeometry.create(bunker_type)
+	
+	if field_position == Vector2.ZERO:
+		var main = get_tree().current_scene
+		if main and main.has_method("get_field"):
+			var field = main.get_field()
+			if field and field.calibrated:
+				field_position = field.screen_to_field(position)
+	
+	queue_redraw()
+
+func meter_to_px(v: float) -> float:
+	return v * 20.0
+
+func get_geometry() -> BunkerGeometry:
+	if not _geometry:
+		_geometry = BunkerGeometry.create(bunker_type)
+	return _geometry
+
+func intersects_ray(origin: Vector2, direction: Vector2, max_distance: float) -> float:
+	if not _geometry:
+		return max_distance
+	
+	var hit = _geometry.intersects_ray(
+		origin,
+		direction,
+		max_distance,
+		field_position,
+		1.0,
+		rotation
+	)
+	
+	return hit
+
+func _draw():
+	var color = get_color()
+	
+	match bunker_type:
+		BunkerType.Type.GIANT_BLOCK:
+			_draw_rect(3.30, 2.00, color)
+		BunkerType.Type.MINI_BLOCK:
+			_draw_rect(1.40, 1.10, color)
+		BunkerType.Type.GIANT_WING:
+			_draw_rect(3.00, 2.00, color)
+		BunkerType.Type.MINI_WING:
+			_draw_rect(2.20, 1.10, color)
+		BunkerType.Type.PLUS:
+			_draw_plus(2.10, color)
+		BunkerType.Type.MAYAN_TEMPLE:
+			_draw_square(1.65, color)
+		BunkerType.Type.TEMPLE:
+			_draw_square(1.50, color)
+		BunkerType.Type.CAN:
+			_draw_circle(0.65, color)
+		BunkerType.Type.PILLAR:
+			_draw_circle(0.50, color)
+		BunkerType.Type.CAKE:
+			_draw_circle(0.50, color)
+		BunkerType.Type.CAKE_TAIL:
+			_draw_rect(1.50, 1.00, color)
+		BunkerType.Type.DORITO_SMALL:
+			_draw_triangle(1.70, color)
+		BunkerType.Type.DORITO_MEDIUM:
+			_draw_triangle(2.10, color)
+		BunkerType.Type.SNAKE_BEAM:
+			_draw_rect(3.00, 0.50, color)
+		BunkerType.Type.SNAKE_SMALL:
+			_draw_rect(2.80, 0.60, color)
+		BunkerType.Type.MINI_M:
+			_draw_rect(1.00, 2.80, color)
+		BunkerType.Type.BRICK:
+			_draw_rect(1.90, 1.00, color)
+		_:
+			_draw_circle(0.5, COLOR_RED)
+	
+	if selected:
+		draw_circle(
+			Vector2.ZERO,
+			16,
+			Color(1, 0.8, 0, 0.4),
+			false,
+			2
+		)
+		
+		var h = Vector2(0, -HANDLE_DISTANCE)
+		draw_line(
+			Vector2.ZERO,
+			h,
+			Color.YELLOW,
+			2
+		)
+		draw_circle(
+			h,
+			HANDLE_RADIUS,
+			Color.YELLOW
+		)
+	
+	if is_mirror:
+		draw_circle(
+			Vector2.ZERO,
+			meter_to_px(1.0),
+			Color(1.0, 1.0, 1.0, 0.15),
+			false,
+			1.0
+		)
+
+func _draw_rect(w: float, h: float, color: Color):
+	var r = Rect2(
+		-meter_to_px(w) / 2,
+		-meter_to_px(h) / 2,
+		meter_to_px(w),
+		meter_to_px(h)
+	)
+	draw_rect(r, color)
+	draw_rect(r, color.darkened(0.3), false, 2)
+
+func _draw_square(s: float, color: Color):
+	_draw_rect(s, s, color)
+
+func _draw_circle(r: float, color: Color):
+	r = meter_to_px(r)
+	draw_circle(Vector2.ZERO, r, color)
+	draw_circle(Vector2.ZERO, r, color.darkened(0.3), false, 2)
+
+func _draw_triangle(size: float, color: Color):
+	var s = meter_to_px(size) / 2
+	var pts = PackedVector2Array([
+		Vector2(0, -s),
+		Vector2(s, s),
+		Vector2(-s, s)
+	])
+	draw_polygon(pts, [color])
+	
+	# Правильный способ для GDScript 4
+	var outline = PackedVector2Array()
+	outline.append_array(pts)
+	outline.append(pts[0])
+	draw_polyline(outline, color.darkened(0.3), 2)
+
+func _draw_plus(size: float, color: Color):
+	var s = meter_to_px(size)
+	draw_rect(Rect2(-s * 0.15, -s / 2, s * 0.3, s), color)
+	draw_rect(Rect2(-s / 2, -s * 0.15, s, s * 0.3), color)
+
+func select():
+	if is_mirror:
+		return
+	selected = true
+	queue_redraw()
+
+func deselect():
+	selected = false
+	rotating = false
+	queue_redraw()
+
+func is_over_rotation_handle(mouse_pos: Vector2) -> bool:
+	if is_mirror:
+		return false
+	var local = to_local(mouse_pos)
+	return local.distance_to(Vector2(0, -HANDLE_DISTANCE)) <= HANDLE_RADIUS + 2
+
+func get_pick_radius() -> float:
+	if is_mirror:
+		return 0.0
+	return max(40.0, meter_to_px(2.0))
+
+============================================
+3. BUNKER_GEOMETRY.gd - Геометрия для столкновений (ОБНОВЛЕН)
+============================================
+class_name BunkerGeometry
+extends RefCounted
+
+enum Shape {
+	RECT,
+	CIRCLE,
+	TRIANGLE,
+	POLYGON
+}
+
+var shape: Shape
+var size: Vector2
+var points: PackedVector2Array
+
+static func create(type: int) -> BunkerGeometry:
+	var geo = BunkerGeometry.new()
+	var info = BunkerLibrary.get_info(type)
+	
+	if info.is_empty():
+		geo.shape = Shape.CIRCLE
+		geo.size = Vector2(0.5, 0.5)
+		return geo
+	
+	var shape_name = info.get("shape", "rect")
+	
+	match shape_name:
+		"rect":
+			geo.shape = Shape.RECT
+			geo.size = Vector2(info.get("width", 1.0), info.get("height", 1.0))
+		
+		"square":
+			geo.shape = Shape.RECT
+			var s = info.get("width", 1.0)
+			geo.size = Vector2(s, s)
+		
+		"circle":
+			geo.shape = Shape.CIRCLE
+			var r = info.get("radius", 0.5)
+			geo.size = Vector2(r, r)
+		
+		"triangle":
+			geo.shape = Shape.TRIANGLE
+			var s = info.get("size", 1.0)
+			var half = s / 2.0
+			geo.points = PackedVector2Array([
+				Vector2(0, -half * 0.866),
+				Vector2(half, half * 0.866),
+				Vector2(-half, half * 0.866)
+			])
+		
+		"wing", "plus", "snake":
+			geo.shape = Shape.RECT
+			geo.size = Vector2(info.get("width", 1.0), info.get("height", 1.0))
+		
+		_:
+			geo.shape = Shape.CIRCLE
+			geo.size = Vector2(0.5, 0.5)
+	
+	return geo
+
+func get_local_vertices() -> PackedVector2Array:
+	match shape:
+		Shape.RECT:
+			var half_w = size.x / 2.0
+			var half_h = size.y / 2.0
+			return PackedVector2Array([
+				Vector2(-half_w, -half_h),
+				Vector2(half_w, -half_h),
+				Vector2(half_w, half_h),
+				Vector2(-half_w, half_h)
+			])
+		
+		Shape.CIRCLE:
+			var pts = PackedVector2Array()
+			var r = size.x
+			for i in range(12):
+				var angle = i * PI / 6.0
+				pts.append(Vector2(cos(angle) * r, sin(angle) * r))
+			return pts
+		
+		Shape.TRIANGLE:
+			return points
+		
+		Shape.POLYGON:
+			return points
+		
+		_:
+			return PackedVector2Array()
+
+func get_world_vertices(center: Vector2, scale: float = 1.0, rotation: float = 0.0) -> PackedVector2Array:
+	var local = get_local_vertices()
+	var result = PackedVector2Array()
+	
+	for p in local:
+		var scaled = p * scale
+		var rotated = scaled.rotated(rotation)
+		result.append(center + rotated)
+	
+	return result
+
+func intersects_ray(origin: Vector2, direction: Vector2, max_distance: float, center: Vector2, scale: float = 1.0, rotation: float = 0.0) -> float:
+	var vertices = get_world_vertices(center, scale, rotation)
+	
+	match shape:
+		Shape.CIRCLE:
+			var radius = size.x * scale
+			return _segment_intersects_circle(origin, direction, max_distance, center, radius)
+		
+		Shape.RECT, Shape.TRIANGLE, Shape.POLYGON:
+			return _segment_intersects_polygon(origin, direction, max_distance, vertices)
+		
+		_:
+			return max_distance
+
+func _segment_intersects_circle(origin: Vector2, direction: Vector2, max_dist: float, center: Vector2, radius: float) -> float:
+	var to_center = center - origin
+	var proj = to_center.dot(direction)
+	
+	if proj < 0:
+		return max_dist
+	
+	var closest = origin + direction * proj
+	var dist_to_center = closest.distance_to(center)
+	
+	# Точное пересечение с окружностью
+	if dist_to_center < radius:
+		var hit_dist = proj - sqrt(radius * radius - dist_to_center * dist_to_center)
+		return max(0, hit_dist)
+	
+	return max_dist
+
+func _segment_intersects_polygon(origin: Vector2, direction: Vector2, max_dist: float, vertices: PackedVector2Array) -> float:
+	if vertices.size() < 3:
+		return max_dist
+	
+	var min_hit = max_dist
+	
+	for i in range(vertices.size()):
+		var j = (i + 1) % vertices.size()
+		var a = vertices[i]
+		var b = vertices[j]
+		
+		var hit = _segment_intersects_segment(origin, direction, max_dist, a, b)
+		if hit >= 0 and hit < min_hit:
+			min_hit = hit
+	
+	return min_hit
+
+func _segment_intersects_segment(origin: Vector2, dir: Vector2, max_dist: float, a: Vector2, b: Vector2) -> float:
+	var d1 = dir
+	var d2 = b - a
+	var d = origin - a
+	
+	var cross = d1.x * d2.y - d1.y * d2.x
+	
+	if abs(cross) < 0.0001:
+		return -1.0
+	
+	var t = (d.x * d2.y - d.y * d2.x) / cross
+	var u = (d.x * d1.y - d.y * d1.x) / cross
+	
+	if t >= 0 and t <= max_dist and u >= 0 and u <= 1:
+		return t
+	
+	return -1.0
+
+============================================
+4. BUNKER_LIBRARY.gd - Библиотека размеров укрытий
+============================================
+class_name BunkerLibrary
+extends RefCounted
+
+const DATA := {
+	BunkerType.Type.GIANT_BLOCK: {
+		"name": "Giant Block",
+		"shape": "rect",
+		"width": 3.30,
+		"height": 2.00
+	},
+	BunkerType.Type.MINI_BLOCK: {
+		"name": "Mini Block",
+		"shape": "rect",
+		"width": 1.40,
+		"height": 1.10
+	},
+	BunkerType.Type.GIANT_WING: {
+		"name": "Giant Wing",
+		"shape": "wing",
+		"width": 3.00,
+		"height": 2.00
+	},
+	BunkerType.Type.MINI_WING: {
+		"name": "Mini Wing",
+		"shape": "wing",
+		"width": 2.20,
+		"height": 1.10
+	},
+	BunkerType.Type.PLUS: {
+		"name": "Plus",
+		"shape": "plus",
+		"width": 2.10,
+		"height": 2.10
+	},
+	BunkerType.Type.MAYAN_TEMPLE: {
+		"name": "Mayan Temple",
+		"shape": "square",
+		"width": 1.65,
+		"height": 1.65
+	},
+	BunkerType.Type.TEMPLE: {
+		"name": "Temple",
+		"shape": "square",
+		"width": 1.50,
+		"height": 1.50
+	},
+	BunkerType.Type.CAN: {
+		"name": "Can",
+		"shape": "circle",
+		"radius": 0.65
+	},
+	BunkerType.Type.PILLAR: {
+		"name": "Pillar",
+		"shape": "circle",
+		"radius": 0.50
+	},
+	BunkerType.Type.CAKE: {
+		"name": "Cake",
+		"shape": "triangle",
+		"size": 1.20
+	},
+	BunkerType.Type.CAKE_TAIL: {
+		"name": "Cake Tail",
+		"shape": "rect",
+		"width": 1.50,
+		"height": 1.00
+	},
+	BunkerType.Type.DORITO_SMALL: {
+		"name": "Dorito Small",
+		"shape": "triangle",
+		"size": 1.90
+	},
+	BunkerType.Type.DORITO_MEDIUM: {
+		"name": "Dorito Medium",
+		"shape": "triangle",
+		"size": 2.40
+	},
+	BunkerType.Type.SNAKE_BEAM: {
+		"name": "Snake Beam",
+		"shape": "rect",
+		"width": 3.00,
+		"height": 0.50
+	},
+	BunkerType.Type.SNAKE_SMALL: {
+		"name": "Snake Small",
+		"shape": "rect",
+		"width": 2.80,
+		"height": 0.60
+	},
+	BunkerType.Type.MINI_M: {
+		"name": "Mini M",
+		"shape": "rect",
+		"width": 1.00,
+		"height": 2.80
+	},
+	BunkerType.Type.BRICK: {
+		"name": "Brick",
+		"shape": "rect",
+		"width": 1.90,
+		"height": 1.00
+	}
+}
+
+static func get_info(type: int) -> Dictionary:
+	return DATA.get(type, {})
+
+============================================
+5. RAYCASTER.gd - Расчет лучей (ПОЛНОСТЬЮ ПЕРЕПИСАН)
+============================================
+class_name RayCaster
+extends RefCounted
+
+const MAX_RAY_LENGTH := 100.0
+
+static func cast(
+	origin: Vector2,
+	direction: Vector2,
+	bunkers: Array,
+	field: Field
+) -> Vector2:
+	
+	var max_point = origin + direction * MAX_RAY_LENGTH
+	var closest = max_point
+	var min_dist = MAX_RAY_LENGTH
+	
+	# Граница поля
+	var boundary_hit = _intersect_field_boundary(origin, direction, field)
+	if boundary_hit != Vector2.ZERO:
+		min_dist = origin.distance_to(boundary_hit)
+		closest = boundary_hit
+	
+	# Проверяем все бункеры
+	for bunker in bunkers:
+		if bunker is Bunker:
+			var bunker_pos = bunker.field_position
+			var to_bunker = bunker_pos - origin
+			var proj = to_bunker.dot(direction)
+			
+			if proj < 0:
+				continue
+			
+			var closest_point = origin + direction * proj
+			var dist_to_bunker = closest_point.distance_to(bunker_pos)
+			
+			# Используем реальный радиус бункера из библиотеки
+			var info = BunkerLibrary.get_info(bunker.bunker_type)
+			var bunker_radius = 0.5  # По умолчанию
+			if not info.is_empty():
+				match info.get("shape", ""):
+					"circle":
+						bunker_radius = info.get("radius", 0.5)
+					"rect", "square", "wing", "plus", "snake":
+						var w = info.get("width", 1.0)
+						var h = info.get("height", 1.0)
+						bunker_radius = max(w, h) / 2.0
+					"triangle":
+						bunker_radius = info.get("size", 1.0) / 2.0
+					_:
+						bunker_radius = 0.5
+			
+			# Точное попадание без зазора!
+			if dist_to_bunker < bunker_radius:
+				var hit_dist = proj - sqrt(bunker_radius * bunker_radius - dist_to_bunker * dist_to_bunker)
+				if hit_dist > 0 and hit_dist < min_dist:
+					min_dist = hit_dist
+					closest = origin + direction * hit_dist
+	
+	return closest
+
+static func _intersect_field_boundary(origin: Vector2, direction: Vector2, field: Field) -> Vector2:
+	if not field or not field.calibrated:
+		return Vector2.ZERO
+	
+	var max_dist = MAX_RAY_LENGTH
+	
+	var corners = [
+		field.top_left,
+		field.top_right,
+		field.bottom_right,
+		field.bottom_left
+	]
+	
+	var min_dist = max_dist
+	var hit_point = origin + direction * max_dist
+	
+	for i in range(4):
+		var a = corners[i]
+		var b = corners[(i + 1) % 4]
+		
+		var hit = _segment_intersection(origin, origin + direction * max_dist, a, b)
+		if hit != Vector2.ZERO:
+			var dist = origin.distance_to(hit)
+			if dist < min_dist:
+				min_dist = dist
+				hit_point = hit
+	
+	if min_dist < max_dist:
+		return hit_point
+	
+	return Vector2.ZERO
+
+static func _segment_intersection(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2) -> Vector2:
+	var d1 = a2 - a1
+	var d2 = b2 - b1
+	var d = a1 - b1
+	
+	var cross = d1.x * d2.y - d1.y * d2.x
+	
+	if abs(cross) < 0.0001:
+		return Vector2.ZERO
+	
+	var t = (d.x * d2.y - d.y * d2.x) / cross
+	var u = (d.x * d1.y - d.y * d1.x) / cross
+	
+	if t >= 0 and t <= 1 and u >= 0 and u <= 1:
+		return a1 + d1 * t
+	
+	return Vector2.ZERO
+
+============================================
+6. PLAYER.gd - Модель игрока
+============================================
+class_name Player
+extends RefCounted
+
+enum Team {
+	RED,
+	BLUE
+}
+
+enum Status {
+	ACTIVE,
+	ELIMINATED
+}
+
+var id: int = 0
+var number: int = 0
+var team: Team = Team.RED
+var status: Status = Status.ACTIVE
+
+# ХРАНИМ В МЕТРАХ!
+var position_metric: Vector2 = Vector2.ZERO
+var rotation: float = 0.0  # Угол в радианах
+
+var fire_enabled: bool = true
+var visible: bool = true
+
+func to_dictionary() -> Dictionary:
+	return {
+		"id": id,
+		"number": number,
+		"team": team,
+		"status": status,
+		"x": position_metric.x,
+		"y": position_metric.y,
+		"rotation": rotation,
+		"fire_enabled": fire_enabled,
+		"visible": visible
+	}
+
+func from_dictionary(data: Dictionary) -> void:
+	id = data.get("id", 0)
+	number = data.get("number", 0)
+	team = data.get("team", Team.RED)
+	status = data.get("status", Status.ACTIVE)
+	position_metric = Vector2(data.get("x", 0.0), data.get("y", 0.0))
+	rotation = data.get("rotation", 0.0)
+	fire_enabled = data.get("fire_enabled", true)
+	visible = data.get("visible", true)
+
+func get_screen_position(field: Field) -> Vector2:
+	if field and field.calibrated:
+		return field.field_to_screen(position_metric)
+	return position_metric * 20.0
+
+func set_from_screen(screen_pos: Vector2, field: Field) -> void:
+	if field and field.calibrated:
+		position_metric = field.screen_to_field(screen_pos)
+	else:
+		position_metric = screen_pos
+
+# Получить направление взгляда
+func get_direction() -> Vector2:
+	return Vector2(1, 0).rotated(rotation)
+
+# Установить угол в градусах
+func set_rotation_degrees(deg: float) -> void:
+	rotation = deg_to_rad(deg)
+
+# Получить угол в градусах
+func get_rotation_degrees() -> float:
+	return rad_to_deg(rotation)
+
+============================================
+7. PLAYER_VISUAL.gd - Отрисовка игрока и луча
+============================================
+class_name PlayerVisual
+extends Node2D
+
+var player: Player = null
+var selected := false
+var radius: float = 12.0
+var _field_ref: Field = null
+var _editor_ref: FieldEditor = null
+
+var show_ray := false
+
+func setup(p_player: Player, field: Field = null, editor: FieldEditor = null) -> void:
+	player = p_player
+	_field_ref = field
+	_editor_ref = editor
+	show_ray = false
+	update_position()
+	queue_redraw()
+
+func update_position() -> void:
+	if not player:
+		return
+	
+	if _field_ref and _field_ref.calibrated:
+		position = player.get_screen_position(_field_ref)
+	else:
+		position = player.position_metric * 20.0
+
+func is_handle_extended() -> bool:
+	return show_ray
+
+func _get_bunkers() -> Array:
+	var result = []
+	if not _editor_ref:
+		return result
+	
+	for child in _editor_ref.get_children():
+		if child is Bunker:
+			result.append(child)
+	
+	return result
+
+func _draw():
+	if not player:
+		return
+	
+	var color = Color(0.9, 0.1, 0.1, 1.0) if player.team == Player.Team.RED else Color(0.1, 0.3, 0.9, 1.0)
+	
+	if player.status == Player.Status.ELIMINATED:
+		color = color.darkened(0.5)
+	
+	draw_circle(Vector2.ZERO, radius, color)
+	draw_circle(Vector2.ZERO, radius, color.darkened(0.2), false, 1.5)
+	
+	if player.number > 0:
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(-4, 5),
+			str(player.number),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			12,
+			Color(1.0, 1.0, 1.0, 0.9)
+		)
+	
+	var dir = Vector2(1, 0).rotated(player.rotation)
+	var end_pos = dir * (radius * 1.8)
+	draw_circle(end_pos, 4.0, Color(1.0, 0.3, 0.3, 1.0))
+	
+	if show_ray:
+		var origin = player.position_metric
+		var direction = Vector2(1, 0).rotated(player.rotation)
+		var bunkers = _get_bunkers()
+		
+		var ray_end_metric = RayCaster.cast(origin, direction, bunkers, _field_ref)
+		var ray_end_px = _field_ref.field_to_screen(ray_end_metric)
+		var local_end = ray_end_px - position
+		
+		if local_end.length() > 5:
+			draw_line(Vector2.ZERO, local_end, Color(1.0, 1.0, 0.0, 0.8), 2.0)
+			
+			var num_dots = 5
+			for i in range(1, num_dots):
+				var t = i / float(num_dots)
+				var dot_pos = local_end * t
+				draw_circle(dot_pos, 2.0, Color(1.0, 1.0, 0.0, 0.4))
+			
+			draw_circle(local_end, 5.0, Color(1.0, 0.5, 0.0, 0.8))
+	
+	if selected:
+		draw_circle(Vector2.ZERO, radius + 4, Color(1.0, 0.8, 0.0, 0.4), false, 2.0)
+		draw_arc(Vector2.ZERO, radius + 8, 0, TAU, 32, Color(1.0, 0.8, 0.0, 0.2), 1.0)
+
+func enable_ray() -> void:
+	show_ray = true
+	queue_redraw()
+
+func disable_ray() -> void:
+	show_ray = false
+	queue_redraw()
+
+func select():
+	selected = true
+	queue_redraw()
+
+func deselect():
+	selected = false
+	queue_redraw()
+
+============================================
+8. PLAYER_EDITOR.gd - Редактор игроков
+============================================
+class_name PlayerEditor
+extends Node2D
+
+var players: Array[PlayerVisual] = []
+var selected_player: PlayerVisual = null
+var dragging := false
+var drag_offset := Vector2.ZERO
+var next_id: int = 1
+var field_ref: Field = null
+var editor_ref: FieldEditor = null
+
+var _context_menu: PlayerContextMenu = null
+var _menu_visual: PlayerVisual = null
+
+var _last_click_time: float = 0.0
+var _last_clicked_player: PlayerVisual = null
+const DOUBLE_CLICK_TIME := 0.3
+
+const WHEEL_ROTATION_DEGREES := 0.5
+
+func set_field_reference(field: Field) -> void:
+	field_ref = field
+
+func set_editor_reference(editor: FieldEditor) -> void:
+	editor_ref = editor
+
+func _ready() -> void:
+	print("✅ PlayerEditor готов")
+	_setup_context_menu()
+
+func _setup_context_menu() -> void:
+	_context_menu = PlayerContextMenu.new()
+	_context_menu.option_selected.connect(_on_menu_option_selected)
+	add_child(_context_menu)
+
+func _on_menu_option_selected(option: String) -> void:
+	if not _menu_visual or not _menu_visual.player:
+		return
+	
+	match option:
+		"extend":
+			print("🔫 Стрельба: игрок %d стреляет!" % _menu_visual.player.number)
+			_select_player(_menu_visual)
+			_menu_visual.enable_ray()
+		
+		"hide_handle":
+			print("⏸️ Ожидание: убрать луч игрока %d" % _menu_visual.player.number)
+			_select_player(_menu_visual)
+			_menu_visual.disable_ray()
+		
+		"delete":
+			_remove_player(_menu_visual)
+	
+	_menu_visual = null
+
+func _input(event: InputEvent) -> void:
+	var main = get_tree().current_scene
+	if not main or not main.has_method("is_tactical_editor"):
+		return
+	
+	if not main.is_tactical_editor():
+		return
+	
+	# Если зажаты ЛКМ и ПКМ одновременно — панорамирование (передаем камере)
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		return
+	
+	var mouse_pos := get_global_mouse_position()
+	
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				if _context_menu and _context_menu.visible:
+					_context_menu.hide()
+				
+				var clicked = _get_player_at(mouse_pos)
+				
+				if clicked:
+					# === КЛИК ПО ИГРОКУ ===
+					var current_time = Time.get_ticks_msec() / 1000.0
+					var time_since_last = current_time - _last_click_time
+					
+					if _last_clicked_player == clicked and time_since_last < DOUBLE_CLICK_TIME:
+						# ДВОЙНОЙ КЛИК — вкл/выкл луч
+						print("🔄 Двойной клик по игроку %d" % clicked.player.number)
+						_select_player(clicked)
+						
+						if clicked.is_handle_extended():
+							clicked.disable_ray()
+							print("⏸️ Луч выключен")
+						else:
+							clicked.enable_ray()
+							print("🔫 Луч включен")
+						
+						_last_click_time = 0.0
+						_last_clicked_player = null
+					else:
+						# ОДИНАРНЫЙ КЛИК — выделение и перемещение
+						_select_player(clicked)
+						dragging = true
+						drag_offset = mouse_pos - clicked.position
+						print("📦 Перемещение игрока %d" % clicked.player.number)
+						
+						_last_click_time = current_time
+						_last_clicked_player = clicked
+				else:
+					# === КЛИК ПО ПОЛЮ (не по игроку) ===
+					# Снимаем выделение
+					if selected_player:
+						selected_player.deselect()
+						selected_player = null
+					dragging = false
+					_last_click_time = 0.0
+					_last_clicked_player = null
+					_block_camera_zoom(false)
+					
+					if _context_menu and _context_menu.visible:
+						_context_menu.hide()
+			else:
+				# Отпускаем ЛКМ
+				dragging = false
+		
+		# === ПКМ: КОНТЕКСТНОЕ МЕНЮ ===
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				# Если ЛКМ не зажат — показываем меню
+				if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+					var clicked = _get_player_at(mouse_pos)
+					if clicked:
+						_menu_visual = clicked
+						_select_player(clicked)
+						if _context_menu:
+							_context_menu.show_menu(clicked.player, clicked, mouse_pos)
+							print("📋 Открыто меню для игрока %d" % clicked.player.number)
+							get_viewport().set_input_as_handled()
+					else:
+						if selected_player:
+							selected_player.deselect()
+							selected_player = null
+						_block_camera_zoom(false)
+		
+		# === КОЛЕСИКО МЫШИ: Вращение игрока ===
+		if selected_player:
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+				selected_player.player.rotation -= deg_to_rad(WHEEL_ROTATION_DEGREES)
+				selected_player.queue_redraw()
+				print("🔄 Влево: -%.1f°" % WHEEL_ROTATION_DEGREES)
+				get_viewport().set_input_as_handled()
+			
+			if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+				selected_player.player.rotation += deg_to_rad(WHEEL_ROTATION_DEGREES)
+				selected_player.queue_redraw()
+				print("🔄 Вправо: +%.1f°" % WHEEL_ROTATION_DEGREES)
+				get_viewport().set_input_as_handled()
+	
+	if event is InputEventMouseMotion:
+		if dragging and selected_player:
+			_move_player(mouse_pos)
+	
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE:
+			if selected_player:
+				selected_player.deselect()
+				selected_player = null
+			dragging = false
+			_block_camera_zoom(false)
+			if _context_menu and _context_menu.visible:
+				_context_menu.hide()
+		
+		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+			if selected_player:
+				_remove_player(selected_player)
+
+func _move_player(mouse_pos: Vector2) -> void:
+	if not selected_player or not selected_player.player:
+		return
+	
+	var new_screen_pos = mouse_pos - drag_offset
+	
+	if field_ref and field_ref.calibrated:
+		var metric_pos = field_ref.screen_to_field(new_screen_pos)
+		metric_pos.x = clamp(metric_pos.x, 0.0, Field.WIDTH)
+		metric_pos.y = clamp(metric_pos.y, 0.0, Field.HEIGHT)
+		selected_player.player.position_metric = metric_pos
+		new_screen_pos = field_ref.field_to_screen(metric_pos)
+	else:
+		selected_player.player.position_metric = new_screen_pos
+	
+	selected_player.position = new_screen_pos
+	selected_player.queue_redraw()
+
+func create_player(team: int, screen_pos: Vector2) -> void:
+	if not field_ref:
+		print("❌ Field reference not set!")
+		return
+	
+	if not editor_ref:
+		print("❌ Editor reference not set!")
+		return
+	
+	var player = Player.new()
+	player.id = next_id
+	next_id += 1
+	player.team = team
+	player.number = players.size() + 1
+	
+	if field_ref and field_ref.calibrated:
+		var metric_pos = field_ref.screen_to_field(screen_pos)
+		metric_pos.x = clamp(metric_pos.x, 0.0, Field.WIDTH)
+		metric_pos.y = clamp(metric_pos.y, 0.0, Field.HEIGHT)
+		player.position_metric = metric_pos
+	else:
+		player.position_metric = screen_pos
+	
+	var visual = PlayerVisual.new()
+	visual.setup(player, field_ref, editor_ref)
+	add_child(visual)
+	players.append(visual)
+	
+	var team_name = "RED" if team == Player.Team.RED else "BLUE"
+	print("✅ Игрок %s (%s) создан на позиции: (%.2f, %.2f) м" % [player.number, team_name, player.position_metric.x, player.position_metric.y])
+
+func _get_player_at(pos: Vector2) -> PlayerVisual:
+	for visual in players:
+		if visual.position.distance_to(pos) < 20:
+			return visual
+	return null
+
+func _select_player(visual: PlayerVisual) -> void:
+	if selected_player and selected_player != visual:
+		selected_player.deselect()
+	
+	selected_player = visual
+	visual.select()
+	print("✅ Выделен игрок: %s" % visual.player.number)
+	_block_camera_zoom(true)
+
+func _block_camera_zoom(blocked: bool) -> void:
+	var main = get_tree().current_scene
+	if main:
+		var camera = main.get_node_or_null("Camera2D")
+		if camera and camera.has_method("set_zoom_blocked"):
+			camera.set_zoom_blocked(blocked)
+
+func _remove_player(visual: PlayerVisual) -> void:
+	players.erase(visual)
+	if selected_player == visual:
+		selected_player = null
+	if _menu_visual == visual:
+		_menu_visual = null
+	visual.queue_free()
+	print("🗑️ Игрок удалён")
+
+func get_player_count() -> int:
+	return players.size()
+
+func get_team_count(team: int) -> int:
+	var count = 0
+	for visual in players:
+		if visual.player.team == team:
+			count += 1
+	return count
+
+func get_players() -> Array:
+	return players
+
+func clear_players() -> void:
+	for visual in players:
+		visual.queue_free()
+	players.clear()
+	selected_player = null
+	_menu_visual = null
+	next_id = 1
+	dragging = false
+	_block_camera_zoom(false)
+	if _context_menu and _context_menu.visible:
+		_context_menu.hide()
+
+============================================
+9. CAMERA_CONTROLLER.gd - Управление камерой (ОБНОВЛЕН)
+============================================
+class_name CameraController
+extends Camera2D
+
+@export var zoom_step: float = 0.1
+@export var min_zoom: float = 0.1
+@export var max_zoom: float = 10.0
+@export var pan_speed: float = 1.0
+
+var dragging := false
+var is_panning := false
+var last_mouse_position := Vector2.ZERO
+var drag_start_pos := Vector2.ZERO
+var drag_start_camera_pos := Vector2.ZERO
+
+var field_bounds: Rect2 = Rect2(0, 0, 1920, 1080)
+var zoom_blocked := false
+
+func _ready() -> void:
+	_update_bounds()
+
+func _update_bounds() -> void:
+	var main = get_tree().current_scene
+	if main:
+		var field_image = main.get_node_or_null("Field/FieldImage")
+		if field_image and field_image.texture:
+			var size = Vector2(field_image.texture.get_width(), field_image.texture.get_height())
+			field_bounds = Rect2(-size / 2, size)
+	else:
+		field_bounds = Rect2(-960, -540, 1920, 1080)
+
+func set_zoom_blocked(blocked: bool) -> void:
+	zoom_blocked = blocked
+
+func _unhandled_input(event: InputEvent) -> void:
+	# === ЗУМ ===
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			if not zoom_blocked:
+				_zoom(-zoom_step)
+			else:
+				get_viewport().set_input_as_handled()
+		
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			if not zoom_blocked:
+				_zoom(zoom_step)
+			else:
+				get_viewport().set_input_as_handled()
+		
+		# === ПАН: ЛКМ + ПКМ одновременно ===
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				# Если ПКМ уже зажат — начинаем панорамирование
+				if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+					_start_pan(event.position)
+					get_viewport().set_input_as_handled()
+			else:
+				# Отпускаем ЛКМ — завершаем панорамирование
+				if is_panning:
+					_stop_pan()
+		
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				# Если ЛКМ уже зажат — начинаем панорамирование
+				if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+					_start_pan(event.position)
+					get_viewport().set_input_as_handled()
+			else:
+				# Отпускаем ПКМ — завершаем панорамирование
+				if is_panning:
+					_stop_pan()
+
+	if event is InputEventMouseMotion:
+		if is_panning:
+			var delta: Vector2 = event.position - last_mouse_position
+			position -= delta * pan_speed / zoom.x
+			last_mouse_position = event.position
+			_clamp_position()
+
+func _start_pan(mouse_pos: Vector2) -> void:
+	is_panning = true
+	dragging = true
+	last_mouse_position = mouse_pos
+	drag_start_pos = mouse_pos
+	drag_start_camera_pos = position
+	Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+	print("📷 Панорамирование (ЛКМ+ПКМ)")
+
+func _stop_pan() -> void:
+	is_panning = false
+	dragging = false
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+	print("📷 Панорамирование завершено")
+
+func _zoom(step: float) -> void:
+	var old_zoom = zoom.x
+	var new_zoom = clamp(zoom.x + step, min_zoom, max_zoom)
+	
+	if new_zoom == old_zoom:
+		return
+	
+	var mouse_pos = get_global_mouse_position()
+	var offset = mouse_pos - position
+	var zoom_ratio = old_zoom / new_zoom
+	zoom = Vector2(new_zoom, new_zoom)
+	position = mouse_pos - offset * (old_zoom / new_zoom)
+	
+	_clamp_position()
+
+func _clamp_position() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	var half_view = viewport_size / 2
+	
+	var visible_width = viewport_size.x / zoom.x
+	var visible_height = viewport_size.y / zoom.y
+	
+	var min_x = field_bounds.position.x + visible_width / 2
+	var max_x = field_bounds.end.x - visible_width / 2
+	var min_y = field_bounds.position.y + visible_height / 2
+	var max_y = field_bounds.end.y - visible_height / 2
+	
+	if max_x < min_x:
+		position.x = field_bounds.get_center().x
+	else:
+		position.x = clamp(position.x, min_x, max_x)
+	
+	if max_y < min_y:
+		position.y = field_bounds.get_center().y
+	else:
+		position.y = clamp(position.y, min_y, max_y)
+
+func reset_view() -> void:
+	position = Vector2.ZERO
+	zoom = Vector2.ONE
+	_clamp_position()
+
+============================================
+10. MAIN.gd - Главная сцена (связь всего)
+============================================
+extends Node2D
+
+@onready var field_image: Sprite2D = $Field/FieldImage
+@onready var background: ColorRect = $UI/Background
+@onready var title: Label = $UI/Title
+@onready var subtitle: Label = $UI/Subtitle
+@onready var hint: Label = $UI/Hint
+
+var _document: Document = null
+var _field_editor: FieldEditor = null
+var _player_editor: PlayerEditor = null
+var field := Field.new()
+var calibration_step := 0
+var corners := []
+var marker_nodes := []
+var calibration_active := false
+var current_image_path: String = ""
+
+var center_line: Line2D = null
+var is_dragging_center := false
+var drag_start_pos: Vector2 = Vector2.ZERO
+var drag_start_center: Vector2 = Vector2.ZERO
+var center_drag_enabled := false
+
+var editor_mode: int = EditorMode.Mode.FIELD_EDITOR
+
+func _ready() -> void:
+	print("Paintball Tactical Editor v0.1.0")
+	print("Sprint 5 - Player Editor")
+	
+	_document = Document.new()
+	_document.name = "Untitled"
+	
+	_field_editor = $FieldEditor
+	if _field_editor:
+		print("✅ FieldEditor готов")
+	
+	_player_editor = $PlayerEditor
+	if _player_editor:
+		print("✅ PlayerEditor готов")
+		_player_editor.set_field_reference(field)
+		_player_editor.set_editor_reference(_field_editor)  # ← КЛЮЧЕВОЕ!
+	
+	var ui = $UI
+	if ui:
+		var main_menu = ui.get_node("MainMenu")
+		if main_menu:
+			main_menu.edit_field.connect(_on_edit_field_signal)
+			main_menu.save_project.connect(_on_save_project)
+			main_menu.load_project.connect(_on_load_project)
+			main_menu.game_mode.connect(_on_game_mode)
+			print("✅ MainMenu подключён")
+	
+	if hint:
+		hint.add_theme_font_size_override("font_size", 42)
+		hint.text = "Нажмите «Edit Field» чтобы загрузить изображение поля"
+		calibration_active = false
+		center_drag_enabled = false
+
+func enter_field_editor() -> void:
+	editor_mode = EditorMode.Mode.FIELD_EDITOR
+	print("🔧 Режим: FIELD EDITOR")
+	if _field_editor:
+		_field_editor.visible = true
+	if _player_editor:
+		_player_editor.visible = false
+
+func enter_tactical_editor() -> void:
+	editor_mode = EditorMode.Mode.TACTICAL_EDITOR
+	print("🎯 Режим: TACTICAL EDITOR")
+	if _field_editor:
+		_field_editor.visible = true
+	if _player_editor:
+		_player_editor.visible = true
+
+func enter_game() -> void:
+	editor_mode = EditorMode.Mode.GAME
+	print("🎮 Режим: GAME")
+	if _field_editor:
+		_field_editor.visible = false
+	if _player_editor:
+		_player_editor.visible = false
+
+func is_field_editor() -> bool:
+	return editor_mode == EditorMode.Mode.FIELD_EDITOR
+
+func is_tactical_editor() -> bool:
+	return editor_mode == EditorMode.Mode.TACTICAL_EDITOR
+
+func is_game() -> bool:
+	return editor_mode == EditorMode.Mode.GAME
+
+func _on_edit_field_signal() -> void:
+	enter_field_editor()
+
+func _on_save_project(path: String) -> void:
+	print("📥 Получен путь для сохранения: %s" % path)
+	save_document(path)
+
+func _on_load_project(path: String) -> void:
+	enter_tactical_editor()
+	load_document(path)
+
+func _on_game_mode() -> void:
+	enter_game()
+	load_document("user://project.ptf")
+
+func load_field(path: String) -> void:
+	if not is_field_editor():
+		print("⚠️ Редактирование поля доступно только в FIELD_EDITOR режиме")
+		return
+	
+	var texture := ImageLoader.load_texture(path)
+	
+	if texture == null:
+		print("❌ Не удалось загрузить изображение: %s" % path)
+		return
+	
+	current_image_path = path
+	_clear_bunkers()
+	_remove_center_line()
+	
+	background.visible = false
+	title.visible = false
+	subtitle.visible = false
+	
+	field_image.texture = texture
+	field_image.centered = true
+	_document.image_path = path
+	_fit_image_to_view()
+	
+	_calibration_reset()
+	calibration_active = true
+	center_drag_enabled = false
+	
+	if hint:
+		hint.text = "КАЛИБРОВКА (5 точек):\n1. Левый верхний → 2. Правый верхний → 3. Правый нижний → 4. Левый нижний → 5. Центр поля"
+		hint.visible = true
+	
+	print("✅ Изображение загружено: %s" % path)
+
+func _remove_center_line() -> void:
+	if center_line:
+		center_line.queue_free()
+		center_line = null
+
+func _draw_center_line() -> void:
+	_remove_center_line()
+	
+	if not field.calibrated:
+		return
+	
+	var center_px = field.get_center_pixel()
+	var top_y = field.top_left.y
+	var bottom_y = field.bottom_left.y
+	
+	center_line = Line2D.new()
+	center_line.add_point(Vector2(center_px.x, top_y))
+	center_line.add_point(Vector2(center_px.x, bottom_y))
+	center_line.width = 1.5
+	center_line.default_color = Color(1.0, 0.0, 0.0, 0.6)
+	add_child(center_line)
+	print("✅ Центральная линия нарисована: X=%.1f" % center_px.x)
+	
+	center_drag_enabled = true
+
+func _clear_bunkers() -> void:
+	if _field_editor:
+		for child in _field_editor.get_children():
+			if child is Bunker:
+				child.queue_free()
+
+func _fit_image_to_view() -> void:
+	if field_image.texture == null:
+		return
+	
+	var viewport_size = get_viewport().get_visible_rect().size
+	var image_size = Vector2(
+		field_image.texture.get_width(),
+		field_image.texture.get_height()
+	)
+	
+	if image_size == Vector2.ZERO:
+		return
+	
+	var scale_x = viewport_size.x / image_size.x
+	var scale_y = viewport_size.y / image_size.y
+	var fit_scale = min(scale_x, scale_y) * 0.85
+	
+	field_image.scale = Vector2(fit_scale, fit_scale)
+	field_image.position = viewport_size / 2
+	
+	var camera = $Camera2D
+	if camera:
+		camera.position = viewport_size / 2
+		camera.zoom = Vector2(1, 1)
+		print("✅ Камера установлена: position=%s, zoom=%s" % [camera.position, camera.zoom])
+
+func save_document(path: String) -> void:
+	print("💾 Сохранение документа: %s" % path)
+	print("========================")
+	
+	if not _field_editor:
+		print("❌ FieldEditor не найден")
+		return
+	
+	var bunkers_data = []
+	for child in _field_editor.get_children():
+		if child is Bunker:
+			var field_pos = child.field_position
+			if field_pos == Vector2.ZERO and field.calibrated:
+				field_pos = field.screen_to_field(child.position)
+			
+			bunkers_data.append({
+				"id": child.id,
+				"mirror_id": child.mirror_id,
+				"type": child.bunker_type,
+				"type_name": BunkerType.get_display_name(child.bunker_type),
+				"x": field_pos.x,
+				"y": field_pos.y,
+				"rotation": child.rotation,
+				"is_mirror": child.is_mirror,
+				"visible": true
+			})
+	
+	print("   Собрано укрытий (метры): %s" % bunkers_data.size())
+	
+	_document.clear_bunkers()
+	for data in bunkers_data:
+		_document.add_bunker(data)
+	
+	if field.calibrated:
+		_document.set_corners(field.top_left, field.top_right, field.bottom_right, field.bottom_left)
+		_document.set_center(field.center_pixel)
+		print("   Калибровка сохранена")
+	
+	_document.image_path = current_image_path
+	if field_image.texture:
+		var image = field_image.texture.get_image()
+		if image:
+			var png_data = image.save_png_to_buffer()
+			_document.image_data = Marshalls.raw_to_base64(png_data)
+			print("   Изображение сохранено: %s байт" % png_data.size())
+	
+	print("   Сохраняем на диск...")
+	var err = ProjectSerializer.save_document(_document, path)
+	
+	if err == OK:
+		print("✅ Документ сохранён: %s" % path)
+		if FileAccess.file_exists(path):
+			print("✅ Файл существует: %s" % path)
+		else:
+			print("❌ Файл НЕ существует: %s" % path)
+	else:
+		print("❌ Ошибка сохранения: %s" % err)
+
+func load_document(path: String) -> void:
+	print("📂 Загрузка документа: %s" % path)
+	
+	background.visible = false
+	title.visible = false
+	subtitle.visible = false
+	if hint:
+		hint.visible = false
+	
+	var loaded = ProjectSerializer.load_document(path)
+	if not loaded:
+		print("❌ Ошибка загрузки документа: %s" % path)
+		return
+	
+	_document = loaded
+	
+	if _document.has_image_data():
+		print("   Восстановление изображения из base64...")
+		var image_bytes = Marshalls.base64_to_raw(_document.image_data)
+		var image = Image.new()
+		var err = image.load_png_from_buffer(image_bytes)
+		if err == OK:
+			var texture = ImageTexture.create_from_image(image)
+			field_image.texture = texture
+			field_image.centered = true
+			field_image.visible = true
+			_fit_image_to_view()
+			print("✅ Изображение восстановлено из base64")
+		else:
+			print("❌ Ошибка восстановления изображения: %s" % err)
+	
+	if _document.calibrated:
+		field.set_corners(
+			_document.top_left,
+			_document.top_right,
+			_document.bottom_right,
+			_document.bottom_left
+		)
+		field.set_center(_document.center_pixel)
+		print("✅ Калибровка восстановлена")
+		_draw_center_line()
+	
+	_clear_bunkers()
+	
+	var restored_count = 0
+	for data in _document.bunkers:
+		var metric_pos = Vector2(data["x"], data["y"])
+		var screen_pos = field.field_to_screen(metric_pos)
+		
+		var bunker = Bunker.new()
+		bunker.position = screen_pos
+		bunker.field_position = metric_pos
+		bunker.id = data.get("id", restored_count + 1)
+		bunker.mirror_id = data.get("mirror_id", -1)
+		
+		var type_str = data.get("type_name", "Giant Block")
+		var found_type = BunkerType.Type.GIANT_BLOCK
+		for t in BunkerType.get_all_types():
+			if BunkerType.get_display_name(t) == type_str:
+				found_type = t
+				break
+		bunker.bunker_type = found_type
+		
+		bunker.is_mirror = data.get("is_mirror", false)
+		bunker.rotation = data.get("rotation", 0.0)
+		
+		_field_editor.add_child(bunker)
+		bunker.queue_redraw()
+		restored_count += 1
+		print("   ✅ Восстановлен бункер %d: метры(%.2f, %.2f) -> пиксели(%.1f, %.1f)" % [bunker.id, metric_pos.x, metric_pos.y, screen_pos.x, screen_pos.y])
+	
+	print("✅ Восстановлено укрытий: %s" % restored_count)
+	
+	if _player_editor:
+		_player_editor.clear_players()
+		for data in _document.players:
+			var player = Player.new()
+			player.from_dictionary(data)
+			var visual = PlayerVisual.new()
+			visual.setup(player, field, _field_editor)  # ← Передаем FieldEditor!
+			_player_editor.add_child(visual)
+			_player_editor.players.append(visual)
+			print("   ✅ Восстановлен игрок %d: (%.2f, %.2f) м" % [player.number, player.position_metric.x, player.position_metric.y])
+	
+	print("✅ Документ загружен: %s" % path)
+
+func _input(event: InputEvent) -> void:
+	if not calibration_active:
+		_handle_center_drag(event)
+		return
+	
+	if is_field_editor() and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var mouse_pos = get_global_mouse_position()
+		_add_point(mouse_pos)
+
+func _add_point(pos: Vector2) -> void:
+	if not is_field_editor():
+		return
+	
+	calibration_step += 1
+	
+	var marker = ColorRect.new()
+	marker.size = Vector2(8, 8)
+	marker.position = pos - Vector2(4, 4)
+	
+	if calibration_step <= 4:
+		marker.color = Color(0.1, 0.1, 0.5, 1)
+		corners.append(pos)
+		add_child(marker)
+		marker_nodes.append(marker)
+		
+		print("📍 Угол %d: %s" % [calibration_step, pos])
+		
+		if hint:
+			match calibration_step:
+				1:
+					hint.text = "✅ Левый верхний.\nТеперь кликните по ПРАВОМУ ВЕРХНЕМУ углу"
+				2:
+					hint.text = "✅ Правый верхний.\nТеперь кликните по ПРАВОМУ НИЖНЕМУ углу"
+				3:
+					hint.text = "✅ Правый нижний.\nТеперь кликните по ЛЕВОМУ НИЖНЕМУ углу"
+				4:
+					hint.text = "✅ Левый нижний.\nТеперь кликните по ЦЕНТРУ ПОЛЯ"
+	else:
+		_finish_calibration(pos)
+
+func _finish_calibration(center: Vector2) -> void:
+	if not is_field_editor():
+		return
+	
+	field.set_corners(corners[0], corners[1], corners[2], corners[3])
+	field.set_center(center)
+	
+	_draw_center_line()
+	
+	print("✅ КАЛИБРОВКА ЗАВЕРШЕНА!")
+	print("   Центр поля (пиксели): %s" % center)
+	
+	for marker in marker_nodes:
+		marker.queue_free()
+	marker_nodes.clear()
+	
+	if hint:
+		hint.text = ""
+		hint.visible = false
+	
+	calibration_active = false
+
+func _calibration_reset() -> void:
+	calibration_step = 0
+	corners = []
+	field.calibrated = false
+	calibration_active = false
+	_remove_center_line()
+	center_drag_enabled = false
+	
+	for marker in marker_nodes:
+		marker.queue_free()
+	marker_nodes.clear()
+	
+	if hint:
+		hint.visible = true
+		hint.text = "Нажмите «Edit Field» чтобы загрузить изображение поля"
+
+func _handle_center_drag(event: InputEvent) -> void:
+	if not field.calibrated:
+		return
+	
+	if not center_drag_enabled:
+		return
+	
+	if not is_field_editor():
+		return
+	
+	if not center_line:
+		return
+	
+	var mouse_pos = get_global_mouse_position()
+	var center_px = field.get_center_pixel()
+	
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			var dist = abs(mouse_pos.x - center_px.x)
+			if dist < 20:
+				is_dragging_center = true
+				drag_start_pos = mouse_pos
+				drag_start_center = center_px
+				print("🔴 Перетаскивание центра начато")
+			else:
+				is_dragging_center = false
+		else:
+			if is_dragging_center:
+				is_dragging_center = false
+				print("🔴 Перетаскивание центра завершено")
+	
+	if event is InputEventMouseMotion and is_dragging_center:
+		var delta_x = mouse_pos.x - drag_start_pos.x
+		var new_center_x = drag_start_center.x + delta_x
+		
+		var min_x = field.top_left.x + 20
+		var max_x = field.top_right.x - 20
+		new_center_x = clamp(new_center_x, min_x, max_x)
+		
+		var new_center = Vector2(new_center_x, field.get_center_pixel().y)
+		field.center_pixel = new_center
+		
+		_draw_center_line()
+		
+		print("📍 Центр перемещён: X=%.1f" % new_center_x)
+
+func get_field() -> Field:
+	return field
+
+func is_calibrated() -> bool:
+	return field.calibrated
+
+============================================
+11. DOCUMENT.gd - Сохранение/загрузка
+============================================
+class_name Document
+extends RefCounted
+
+var version: int = 1
+var name: String = "Untitled"
+var image_path: String = ""
+var image_data: String = ""
+
+# Калибровка
+var top_left: Vector2 = Vector2.ZERO
+var top_right: Vector2 = Vector2.ZERO
+var bottom_right: Vector2 = Vector2.ZERO
+var bottom_left: Vector2 = Vector2.ZERO
+var center_pixel: Vector2 = Vector2.ZERO
+var calibrated: bool = false
+
+var field_width: float = 45.0
+var field_height: float = 36.0
+
+# Данные
+var bunkers: Array = []  # Массив словарей
+var players: Array = []  # Массив словарей
+
+func set_corners(tl: Vector2, tr: Vector2, br: Vector2, bl: Vector2) -> void:
+	top_left = tl
+	top_right = tr
+	bottom_right = br
+	bottom_left = bl
+	calibrated = true
+
+func set_center(center: Vector2) -> void:
+	center_pixel = center
+
+func add_bunker(bunker_data: Dictionary) -> void:
+	bunkers.append(bunker_data)
+
+func add_player(player_data: Dictionary) -> void:
+	players.append(player_data)
+
+func clear_bunkers() -> void:
+	bunkers.clear()
+
+func clear_players() -> void:
+	players.clear()
+
+func has_image_data() -> bool:
+	return image_data != ""
+
+func to_dictionary() -> Dictionary:
+	return {
+		"version": version,
+		"name": name,
+		"image_path": image_path,
+		"image_data": image_data,
+		"field": {
+			"width": field_width,
+			"height": field_height
+		},
+		"calibration": {
+			"top_left": [top_left.x, top_left.y],
+			"top_right": [top_right.x, top_right.y],
+			"bottom_right": [bottom_right.x, bottom_right.y],
+			"bottom_left": [bottom_left.x, bottom_left.y],
+			"center_pixel": [center_pixel.x, center_pixel.y],
+			"calibrated": calibrated
+		},
+		"bunkers": bunkers,
+		"players": players  # Добавляем игроков!
+	}
+
+func from_dictionary(data: Dictionary) -> void:
+	version = data.get("version", 1)
+	name = data.get("name", "Untitled")
+	image_path = data.get("image_path", "")
+	image_data = data.get("image_data", "")
+	
+	var field_data = data.get("field", {})
+	field_width = field_data.get("width", 45.0)
+	field_height = field_data.get("height", 36.0)
+	
+	var calib = data.get("calibration", {})
+	var tl = calib.get("top_left", [0, 0])
+	var tr = calib.get("top_right", [0, 0])
+	var br = calib.get("bottom_right", [0, 0])
+	var bl = calib.get("bottom_left", [0, 0])
+	var cp = calib.get("center_pixel", [0, 0])
+	
+	top_left = Vector2(tl[0], tl[1])
+	top_right = Vector2(tr[0], tr[1])
+	bottom_right = Vector2(br[0], br[1])
+	bottom_left = Vector2(bl[0], bl[1])
+	center_pixel = Vector2(cp[0], cp[1])
+	calibrated = calib.get("calibrated", false)
+	
+	bunkers = data.get("bunkers", [])
+	players = data.get("players", [])  # Загружаем игроков
+
+============================================
+12. PROJECT_SERIALIZER.gd - Сериализация
+============================================
+class_name ProjectSerializer
+extends RefCounted
+
+static func save_document(document: Document, path: String) -> Error:
+	print("📝 ProjectSerializer.save_document()")
+	print("   Путь: %s" % path)
+	
+	var json_string := JSON.stringify(document.to_dictionary(), "\t")
+	
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		var err = FileAccess.get_open_error()
+		print("❌ Ошибка открытия файла: %s" % err)
+		return err
+	
+	file.store_string(json_string)
+	file.close()
+	
+	print("✅ Файл записан: %s" % path)
+	return OK
+
+static func load_document(path: String) -> Document:
+	print("📂 ProjectSerializer.load_document()")
+	print("   Путь: %s" % path)
+	
+	if not FileAccess.file_exists(path):
+		print("❌ Файл не существует: %s" % path)
+		return null
+	
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		print("❌ Ошибка открытия файла: %s" % path)
+		return null
+	
+	var text := file.get_as_text()
+	file.close()
+	
+	var json := JSON.new()
+	if json.parse(text) != OK:
+		print("❌ Ошибка парсинга JSON")
+		return null
+	
+	var document := Document.new()
+	document.from_dictionary(json.data)
+	print("✅ Документ загружен: %s" % path)
+	return document
+
+============================================
+13. MAIN_MENU.gd - Главное меню
+============================================
+class_name MainMenu
+extends Control
+
+signal edit_field()
+signal save_project(path: String)   # Теперь с путём!
+signal load_project(path: String)
+signal game_mode()
+signal exit_app()
+
+var _file_dialog: FileDialog = null
+var _save_dialog: FileDialog = null
+
+func _ready() -> void:
+	_setup_file_dialog()
+	_setup_save_dialog()
+	
+	# Edit Field
+	var btn_edit = Button.new()
+	btn_edit.text = "📂 Edit Field"
+	btn_edit.position = Vector2(10, 10)
+	btn_edit.size = Vector2(130, 45)
+	btn_edit.add_theme_font_size_override("font_size", 25)
+	btn_edit.pressed.connect(_on_edit_field_pressed)
+	add_child(btn_edit)
+	
+	# Save Project
+	var btn_save = Button.new()
+	btn_save.text = "💾 Save Project"
+	btn_save.position = Vector2(170, 10)
+	btn_save.size = Vector2(130, 45)
+	btn_save.add_theme_font_size_override("font_size", 25)
+	btn_save.pressed.connect(_on_save_project_pressed)
+	add_child(btn_save)
+	
+	# Load Project
+	var btn_load = Button.new()
+	btn_load.text = "📂 Load Project"
+	btn_load.position = Vector2(370, 10)
+	btn_load.size = Vector2(130, 45)
+	btn_load.add_theme_font_size_override("font_size", 25)
+	btn_load.pressed.connect(_on_load_project_pressed)
+	add_child(btn_load)
+	
+	# Game
+	var btn_game = Button.new()
+	btn_game.text = "🎮 Game"
+	btn_game.position = Vector2(570, 10)
+	btn_game.size = Vector2(110, 45)
+	btn_game.add_theme_font_size_override("font_size", 25)
+	btn_game.pressed.connect(_on_game_pressed)
+	add_child(btn_game)
+	
+	# Exit
+	var btn_exit = Button.new()
+	btn_exit.text = "🚪 Exit"
+	btn_exit.position = Vector2(690, 10)
+	btn_exit.size = Vector2(110, 45)
+	btn_exit.add_theme_font_size_override("font_size", 25)
+	btn_exit.pressed.connect(_on_exit_pressed)
+	add_child(btn_exit)
+
+func _setup_file_dialog() -> void:
+	_file_dialog = FileDialog.new()
+	_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	add_child(_file_dialog)
+	_file_dialog.file_selected.connect(_on_file_selected)
+	_file_dialog.canceled.connect(_on_file_dialog_canceled)
+
+func _setup_save_dialog() -> void:
+	_save_dialog = FileDialog.new()
+	_save_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_save_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	add_child(_save_dialog)
+	_save_dialog.file_selected.connect(_on_save_file_selected)
+	_save_dialog.canceled.connect(_on_file_dialog_canceled)
+
+func _on_file_selected(path: String) -> void:
+	var ext = path.get_extension().to_lower()
+	if ext in ["png", "jpg", "jpeg"]:
+		edit_field.emit()
+		var main = get_tree().current_scene
+		if main and main.has_method("load_field"):
+			main.load_field(path)
+	elif ext == "ptf":
+		load_project.emit(path)
+
+func _on_save_file_selected(path: String) -> void:
+	if not path.ends_with(".ptf"):
+		path += ".ptf"
+	print("💾 Путь сохранения: %s" % path)
+	save_project.emit(path)
+
+func _on_file_dialog_canceled() -> void:
+	print("Выбор файла отменён")
+
+func open_image_dialog() -> void:
+	_file_dialog.title = "Выберите изображение поля"
+	_file_dialog.add_filter("*.png ; *.jpg ; *.jpeg", "Изображения")
+	_file_dialog.popup_centered()
+
+func open_save_dialog() -> void:
+	_save_dialog.title = "Сохранить проект"
+	_save_dialog.add_filter("*.ptf", "Paintball Tactical File")
+	_save_dialog.popup_centered()
+
+func open_load_dialog() -> void:
+	_file_dialog.title = "Открыть проект .ptf"
+	_file_dialog.add_filter("*.ptf", "Paintball Tactical File")
+	_file_dialog.popup_centered()
+
+func _on_edit_field_pressed() -> void:
+	open_image_dialog()
+
+func _on_save_project_pressed() -> void:
+	open_save_dialog()
+
+func _on_load_project_pressed() -> void:
+	open_load_dialog()
+
+func _on_game_pressed() -> void:
+	game_mode.emit()
+
+func _on_exit_pressed() -> void:
+	print("🚪 Выход из приложения")
+	exit_app.emit()
+	get_tree().quit()
+
+============================================
+14. PLAYER_CONTEXT_MENU.gd - Контекстное меню игрока (НОВОЕ!)
+============================================
+class_name PlayerContextMenu
+extends PopupMenu
+
+signal option_selected(option: String)
+
+var _player_ref: Player = null
+var _visual_ref: PlayerVisual = null
+
+func _ready() -> void:
+	add_theme_font_size_override("font_size", 24)
+	# Подключаем сигнал ОДИН РАЗ при создании
+	id_pressed.connect(_on_item_selected)
+	_rebuild_menu()
+
+func _rebuild_menu() -> void:
+	clear()
+	
+	if _visual_ref and _visual_ref.is_handle_extended():
+		add_item("⏸️ Ожидание", 0)
+	else:
+		add_item("🔫 Стрельба", 0)
+	
+	add_item("🗑️ Удалить игрока", 1)
+
+func _on_item_selected(id: int) -> void:
+	match id:
+		0:
+			if _visual_ref and _visual_ref.is_handle_extended():
+				option_selected.emit("hide_handle")
+			else:
+				option_selected.emit("extend")
+		1:
+			option_selected.emit("delete")
+	hide()
+
+func show_menu(player: Player, visual: PlayerVisual, position: Vector2) -> void:
+	_player_ref = player
+	_visual_ref = visual
+	_rebuild_menu()
+	
+	size = Vector2(280, 120)
+	var rect = Rect2i(position.x, position.y, size.x, size.y)
+	popup(rect)
+
+============================================
+15. ADD_BUNKER_TOOL.gd - Инструмент добавления бункеров
+============================================
+class_name AddBunkerTool
+extends BaseTool
+
+static var NEXT_ID := 1
+
+var type_menu: BunkerTypeMenu = null
+
+func _init(p_editor: FieldEditor = null) -> void:
+	super(p_editor)
+	_create_type_menu()
+
+func _create_type_menu() -> void:
+	type_menu = BunkerTypeMenu.new()
+	type_menu.type_selected.connect(_on_type_selected)
+	if editor:
+		editor.add_child(type_menu)
+
+func _input(event: InputEvent) -> void:
+	if not editor:
+		return
+	
+	var tree = editor.get_tree()
+	if not tree:
+		return
+	
+	var main = tree.current_scene
+	if not main or not main.has_method("is_field_editor"):
+		return
+	
+	if not main.is_field_editor():
+		return
+	
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var screen_pos := editor.get_global_mouse_position()
+		var field = editor.get_field()
+		
+		if not field or not field.calibrated:
+			print("❌ Поле не откалибровано!")
+			return
+		
+		var field_pos = field.screen_to_field(screen_pos)
+		
+		if not field.is_point_inside_metric(field_pos):
+			print("⚠️ Точка за пределами поля! (%.2f, %.2f)" % [field_pos.x, field_pos.y])
+			return
+		
+		var global_pos = editor.get_global_mouse_position()
+		type_menu.show_menu(global_pos)
+		_current_screen_pos = screen_pos
+		_current_field_pos = field_pos
+
+var _current_screen_pos: Vector2 = Vector2.ZERO
+var _current_field_pos: Vector2 = Vector2.ZERO
+
+func _on_type_selected(type: int) -> void:
+	_create_bunker(_current_screen_pos, _current_field_pos, type)
+	if editor.has_method("set_tool"):
+		editor.set_tool("Select")
+
+func _create_bunker(screen_pos: Vector2, field_pos: Vector2, type: int) -> void:
+	var field = editor.get_field()
+	if not field or not field.calibrated:
+		return
+	
+	# Основной бункер
+	var first = Bunker.new()
+	first.position = screen_pos
+	first.field_position = field_pos
+	first.id = _generate_id()
+	first.bunker_type = type
+	first.is_mirror = false
+	first.rotation = 0
+	editor.add_child(first)
+	first.queue_redraw()
+	print("✅ Бункер %s создан на позиции: (%.2f, %.2f) м" % [BunkerType.get_display_name(type), field_pos.x, field_pos.y])
+	
+	# Зеркальный бункер
+	var mirror_screen_pos = field.mirror_screen_position(screen_pos)
+	var mirror_field_pos = field.screen_to_field(mirror_screen_pos)
+	
+	if field.is_point_inside_metric(mirror_field_pos):
+		var mirror = Bunker.new()
+		mirror.position = mirror_screen_pos
+		mirror.field_position = mirror_field_pos  # ← Важно: позиция в метрах!
+		mirror.id = _generate_id()
+		mirror.bunker_type = type
+		mirror.is_mirror = true  # ← Отмечаем как зеркальный
+		mirror.rotation = 0
+		
+		mirror.mirror_id = first.id
+		first.mirror_id = mirror.id
+		
+		editor.add_child(mirror)
+		mirror.queue_redraw()
+		print("✅ Зеркальный бункер %s создан на позиции: (%.2f, %.2f) м" % [BunkerType.get_display_name(type), mirror_field_pos.x, mirror_field_pos.y])
+	else:
+		print("⚠️ Зеркальная точка за пределами поля!")
+
+func _generate_id() -> int:
+	var id = NEXT_ID
+	NEXT_ID += 1
+	return id
+
+============================================
+16. SELECT_TOOL.gd - Инструмент выделения
+============================================
+class_name SelectTool
+extends BaseTool
+
+var dragging := false
+var is_rotating := false
+var drag_offset := Vector2.ZERO
+var selected_bunker: Bunker = null
+var mirror_bunker: Bunker = null
+
+func _input(event: InputEvent) -> void:
+	if not editor:
+		return
+	
+	var tree = editor.get_tree()
+	if not tree:
+		return
+	
+	var main = tree.current_scene
+	if not main or not main.has_method("is_field_editor"):
+		return
+	
+	if not main.is_field_editor():
+		return
+	
+	var mouse_pos := editor.get_global_mouse_position()
+	
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				if Input.is_key_pressed(KEY_SPACE):
+					return
+				
+				var clicked = _get_bunker_at(mouse_pos)
+				if clicked:
+					if clicked != selected_bunker:
+						_deselect_all()
+						selected_bunker = clicked
+						selected_bunker.select()
+						print("✅ Выделен бункер ID: %s" % selected_bunker.id)
+					
+					dragging = true
+					drag_offset = mouse_pos - selected_bunker.position
+					mirror_bunker = _get_mirror_bunker(selected_bunker)
+				else:
+					_deselect_all()
+					dragging = false
+			else:
+				if is_rotating:
+					is_rotating = false
+					if selected_bunker:
+						selected_bunker.rotating = false
+						selected_bunker.queue_redraw()
+					print("🔄 Вращение завершено")
+				dragging = false
+		
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed and selected_bunker:
+				is_rotating = true
+				selected_bunker.rotating = true
+				print("🔄 Вращение начато (ПКМ)")
+			else:
+				if is_rotating:
+					is_rotating = false
+					if selected_bunker:
+						selected_bunker.rotating = false
+						selected_bunker.queue_redraw()
+					print("🔄 Вращение завершено")
+	
+	if event is InputEventMouseMotion:
+		if is_rotating and selected_bunker and selected_bunker.rotating:
+			_rotate_bunker(mouse_pos)
+		elif dragging and selected_bunker and not is_rotating:
+			_move_bunker(mouse_pos)
+	
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+			if selected_bunker:
+				_remove_bunker(selected_bunker)
+
+func _rotate_bunker(mouse_pos: Vector2) -> void:
+	if not selected_bunker:
+		return
+	
+	var center = selected_bunker.global_position
+	var v = mouse_pos - center
+	
+	if v.length() < 20.0:
+		return
+	
+	var angle = v.angle()
+	selected_bunker.rotation = angle
+	selected_bunker.queue_redraw()
+	
+	_sync_mirror(selected_bunker)
+
+func _move_bunker(mouse_pos: Vector2) -> void:
+	if not selected_bunker:
+		return
+	
+	var field = editor.get_field()
+	if not field or not field.calibrated:
+		return
+	
+	var new_screen_pos = mouse_pos - drag_offset
+	var field_pos = field.screen_to_field(new_screen_pos)
+	field_pos.x = clamp(field_pos.x, 0.0, Field.WIDTH)
+	field_pos.y = clamp(field_pos.y, 0.0, Field.HEIGHT)
+	
+	new_screen_pos = field.field_to_screen(field_pos)
+	
+	selected_bunker.position = new_screen_pos
+	selected_bunker.field_position = field_pos
+	
+	_sync_mirror(selected_bunker)
+
+func _sync_mirror(bunker: Bunker) -> void:
+	var field = editor.get_field()
+	if not field or not field.calibrated:
+		return
+	
+	if not mirror_bunker or not is_instance_valid(mirror_bunker):
+		mirror_bunker = _get_mirror_bunker(bunker)
+		if not mirror_bunker:
+			return
+	
+	var center_px = field.get_center_pixel()
+	var dx = bunker.position.x - center_px.x
+	var mirror_pos = Vector2(center_px.x - dx, bunker.position.y)
+	
+	mirror_bunker.position = mirror_pos
+	
+	var mirror_field_pos = field.screen_to_field(mirror_pos)
+	mirror_bunker.field_position = mirror_field_pos
+	
+	var mirror_angle = -bunker.rotation
+	mirror_bunker.rotation = mirror_angle
+	
+	mirror_bunker.queue_redraw()
+
+func _get_bunker_at(pos: Vector2) -> Bunker:
+	var best: Bunker = null
+	var best_dist: float = INF
+	
+	for child in editor.get_children():
+		if child is Bunker:
+			if child.is_mirror:
+				continue
+			
+			var local = child.to_local(pos)
+			var dist = local.length()
+			var pick_radius = child.get_pick_radius()
+			
+			if dist < pick_radius and dist < best_dist:
+				best = child
+				best_dist = dist
+	
+	return best
+
+func _get_mirror_bunker(bunker: Bunker) -> Bunker:
+	if bunker.mirror_id == -1:
+		return null
+	
+	for child in editor.get_children():
+		if child is Bunker:
+			if child.id == bunker.mirror_id:
+				return child
+	return null
+
+func _deselect_all() -> void:
+	if selected_bunker:
+		selected_bunker.deselect()
+		selected_bunker = null
+	mirror_bunker = null
+	dragging = false
+	is_rotating = false
+
+func _remove_bunker(bunker: Bunker) -> void:
+	var mirror = _get_mirror_bunker(bunker)
+	if mirror:
+		mirror.queue_free()
+	bunker.queue_free()
+	selected_bunker = null
+	mirror_bunker = null
+	dragging = false
+	is_rotating = false
+	print("🗑️ Бункер и его зеркало удалены")
+
+============================================
+17. FIELD_EDITOR.gd - Редактор поля
+============================================
+class_name FieldEditor
+extends Node2D
+
+enum Tool {
+	SELECT,
+	ADD_BUNKER,
+	ADD_PLAYER,
+	DRAW_LINE
+}
+
+var current_tool: Tool = Tool.SELECT
+var tools: Dictionary = {}
+
+const SelectToolClass = preload("res://src/editor/tools/SelectTool.gd")
+const AddBunkerToolClass = preload("res://src/editor/tools/AddBunkerTool.gd")
+const PlayerToolClass = preload("res://src/editor/tools/PlayerTool.gd")
+
+func _ready() -> void:
+	tools[Tool.SELECT] = SelectToolClass.new(self)
+	tools[Tool.ADD_BUNKER] = AddBunkerToolClass.new(self)
+	tools[Tool.ADD_PLAYER] = PlayerToolClass.new(self)
+	
+	_set_tool(Tool.SELECT)
+	print("FieldEditor готов, инструмент: SELECT")
+
+func _set_tool(tool: Tool) -> void:
+	current_tool = tool
+	print("🔧 Инструмент: %s" % tool)
+
+func set_tool(tool_name: String) -> void:
+	match tool_name:
+		"Select":
+			_set_tool(Tool.SELECT)
+		"AddBunker":
+			_set_tool(Tool.ADD_BUNKER)
+		"AddPlayer":
+			_set_tool(Tool.ADD_PLAYER)
+		_:
+			print("❌ Неизвестный инструмент: %s" % tool_name)
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Проверяем, откалибровано ли поле
+	var main = get_tree().current_scene
+	if main and main.has_method("is_calibrated"):
+		if not main.is_calibrated():
+			return  # Игнорируем все действия, пока поле не откалибровано
+	
+	if current_tool in tools:
+		tools[current_tool]._input(event)
+	
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_1:
+				_set_tool(Tool.SELECT)
+			KEY_2:
+				_set_tool(Tool.ADD_BUNKER)
+			KEY_3:
+				_set_tool(Tool.ADD_PLAYER)
+			KEY_4:
+				_set_tool(Tool.DRAW_LINE)
+
+func get_field() -> Field:
+	var main = get_tree().current_scene
+	if main and main.has_method("get_field"):
+		return main.get_field()
+	return null
+
+============================================
+18. BUNKER_TYPE_MENU.gd - Меню выбора типа укрытия
+============================================
+class_name BunkerTypeMenu
+extends PopupMenu
+
+signal type_selected(type: int)
+
+func _ready() -> void:
+	# Увеличиваем шрифт и делаем его более чётким
+	add_theme_font_size_override("font_size", 28)
+	
+	# Делаем шрифт жирным для чёткости
+	var font = ThemeDB.fallback_font
+	if font:
+		add_theme_font_override("font", font)
+	
+	_rebuild_menu()
+
+func _rebuild_menu() -> void:
+	clear()
+	
+	var types = BunkerType.get_all_types()
+	for i in range(types.size()):
+		var type = types[i]
+		var name = BunkerType.get_display_name(type)
+		add_item(name, type)
+	
+	id_pressed.connect(_on_item_selected)
+
+func _on_item_selected(id: int) -> void:
+	type_selected.emit(id)
+	hide()
+
+func show_menu(position: Vector2) -> void:
+	# Ширина в 2 раза меньше (было 900, стало 450)
+	size = Vector2(450, 700)
+	var rect = Rect2i(position.x, position.y, size.x, size.y)
+	popup(rect)
+
+============================================
+ИТОГОВАЯ СХЕМА УПРАВЛЕНИЯ (ОБНОВЛЕНА):
+============================================
+| Действие | Результат |
+|----------|-----------|
+| Колесико мыши | Зум |
+| Зажатые ЛКМ + ПКМ (вместе) | Панорамирование |
+| ЛКМ по игроку | Выделение + перемещение |
+| Двойной ЛКМ по игроку | Вкл/Выкл луч |
+| ПКМ по игроку | Контекстное меню |
+| ЛКМ по полю (не по игроку) | Снять выделение |
+
+============================================
+СИСТЕМА КООРДИНАТ:
+============================================
+- Поле: 45×36 метров
+- Все расчеты ведутся в метрах
+- Конвертация метров ↔ пикселей через Field.field_to_screen() / screen_to_field()
+- Бункеры хранят field_position в метрах
+- Игроки хранят position_metric в метрах
+
+============================================
+ТЕКУЩИЙ ФУНКЦИОНАЛ (ОБНОВЛЕН):
+============================================
+✅ Загрузка изображения поля
+✅ Калибровка поля (4 угла + центр)
+✅ Создание укрытий (17 типов)
+✅ Зеркалирование укрытий относительно центра
+✅ Сохранение/загрузка проекта (.ptf)
+✅ Создание игроков (красные/синие)
+✅ Двойной клик — включение луча
+✅ Луч до первого препятствия (бункер или граница поля)
+✅ Вращение игрока колесиком (0.5°)
+✅ Контекстное меню игрока (Стрельба/Ожидание, Удалить)
+✅ Зум и панорамирование (ЛКМ+ПКМ)
+✅ Точное пересечение с геометрией бункеров
+✅ Зеркальные бункеры блокируют луч
+
+============================================
+ИЗВЕСТНЫЕ ПРОБЛЕМЫ:
+============================================
+1. При загрузке сохраненного проекта игроки не восстанавливаются (только бункеры)
+2. Нет проверки видимости между игроками (Line of Sight)
+3. Нет секторов обстрела
+
+============================================
+СЛЕДУЮЩИЙ СПРИНТ (ПЛАНИРУЕМЫЙ):
+============================================
+Sprint 6 - Scenario Editor:
+1. Сохранение/загрузка игроков
+2. Проверка видимости (Line of Sight)
+3. Сектора обстрела
+4. Базовые сценарии (расстановка игроков)
+
+============================================
+АРХИТЕКТУРНЫЕ РЕШЕНИЯ:
+============================================
+1. Разделение отрисовки и геометрии (Bunker / BunkerGeometry)
+2. Единая метрическая система координат (0-45, 0-36)
+3. RayCaster как отдельный класс для расчетов
+4. Инструменты через BaseTool (Select, AddBunker)
+5. PlayerEditor отдельно от FieldEditor
+
+============================================
+КОНЕЦ ФАЙЛА
+============================================

@@ -13,6 +13,7 @@ var drag_start_pos := Vector2.ZERO
 var drag_start_camera_pos := Vector2.ZERO
 
 var field_bounds: Rect2 = Rect2(0, 0, 1920, 1080)
+var zoom_blocked := false
 
 func _ready() -> void:
 	_update_bounds()
@@ -27,46 +28,68 @@ func _update_bounds() -> void:
 	else:
 		field_bounds = Rect2(-960, -540, 1920, 1080)
 
+func set_zoom_blocked(blocked: bool) -> void:
+	zoom_blocked = blocked
+
 func _unhandled_input(event: InputEvent) -> void:
+	# === ЗУМ ===
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			_zoom(-zoom_step)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			_zoom(zoom_step)
-		
-		if event.button_index == MOUSE_BUTTON_MIDDLE:
-			if event.pressed:
-				dragging = true
-				is_panning = true
-				last_mouse_position = event.position
-				drag_start_pos = event.position
-				drag_start_camera_pos = position
-				Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+			if not zoom_blocked:
+				_zoom(-zoom_step)
 			else:
-				dragging = false
-				is_panning = false
-				Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+				get_viewport().set_input_as_handled()
 		
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			if not zoom_blocked:
+				_zoom(zoom_step)
+			else:
+				get_viewport().set_input_as_handled()
+		
+		# === ПАН: ЛКМ + ПКМ одновременно ===
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed and Input.is_key_pressed(KEY_SPACE):
-				is_panning = true
-				dragging = true
-				last_mouse_position = event.position
-				drag_start_pos = event.position
-				drag_start_camera_pos = position
-				Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+			if event.pressed:
+				# Если ПКМ уже зажат — начинаем панорамирование
+				if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+					_start_pan(event.position)
+					get_viewport().set_input_as_handled()
 			else:
+				# Отпускаем ЛКМ — завершаем панорамирование
 				if is_panning:
-					is_panning = false
-					dragging = false
-					Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+					_stop_pan()
+		
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				# Если ЛКМ уже зажат — начинаем панорамирование
+				if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+					_start_pan(event.position)
+					get_viewport().set_input_as_handled()
+			else:
+				# Отпускаем ПКМ — завершаем панорамирование
+				if is_panning:
+					_stop_pan()
 
 	if event is InputEventMouseMotion:
-		if dragging and is_panning:
+		if is_panning:
 			var delta: Vector2 = event.position - last_mouse_position
 			position -= delta * pan_speed / zoom.x
 			last_mouse_position = event.position
 			_clamp_position()
+
+func _start_pan(mouse_pos: Vector2) -> void:
+	is_panning = true
+	dragging = true
+	last_mouse_position = mouse_pos
+	drag_start_pos = mouse_pos
+	drag_start_camera_pos = position
+	Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+	print("📷 Панорамирование (ЛКМ+ПКМ)")
+
+func _stop_pan() -> void:
+	is_panning = false
+	dragging = false
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+	print("📷 Панорамирование завершено")
 
 func _zoom(step: float) -> void:
 	var old_zoom = zoom.x
@@ -75,17 +98,10 @@ func _zoom(step: float) -> void:
 	if new_zoom == old_zoom:
 		return
 	
-	# Правильный зум относительно курсора
 	var mouse_pos = get_global_mouse_position()
-	
-	# Вычисляем, где находится курсор относительно центра камеры
 	var offset = mouse_pos - position
-	
-	# Применяем новый зум
 	var zoom_ratio = old_zoom / new_zoom
 	zoom = Vector2(new_zoom, new_zoom)
-	
-	# Корректируем позицию камеры, чтобы курсор остался на месте
 	position = mouse_pos - offset * (old_zoom / new_zoom)
 	
 	_clamp_position()
