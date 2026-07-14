@@ -204,7 +204,6 @@ func save_document(path: String) -> void:
 		print("❌ FieldEditor не найден")
 		return
 	
-	# === СОХРАНЯЕМ БУНКЕРЫ ===
 	var bunkers_data = []
 	for child in _field_editor.get_children():
 		if child is Bunker:
@@ -226,17 +225,14 @@ func save_document(path: String) -> void:
 	
 	print("   Собрано укрытий (метры): %s" % bunkers_data.size())
 	
-	# === СОХРАНЯЕМ ИГРОКОВ ===
 	var players_data = []
 	if _player_editor:
 		for visual in _player_editor.players:
 			if visual and visual.player:
 				var player = visual.player
 				
-				# Определяем статус
 				var status_str = "ACTIVE" if player.status == Player.Status.ACTIVE else "ELIMINATED"
 				
-				# Определяем сторону выхода луча
 				var side_str = "CENTER"
 				match player.ray_origin:
 					Player.RayOrigin.LEFT:
@@ -265,7 +261,7 @@ func save_document(path: String) -> void:
 	for data in bunkers_data:
 		_document.add_bunker(data)
 	
-	_document.players = players_data  # ← Сохраняем игроков
+	_document.players = players_data
 	
 	if field.calibrated:
 		_document.set_corners(field.top_left, field.top_right, field.bottom_right, field.bottom_left)
@@ -308,7 +304,6 @@ func load_document(path: String) -> void:
 	
 	_document = loaded
 	
-	# === ВОССТАНОВЛЕНИЕ ИЗОБРАЖЕНИЯ ===
 	if _document.has_image_data():
 		print("   Восстановление изображения из base64...")
 		var image_bytes = Marshalls.base64_to_raw(_document.image_data)
@@ -324,7 +319,6 @@ func load_document(path: String) -> void:
 		else:
 			print("❌ Ошибка восстановления изображения: %s" % err)
 	
-	# === ВОССТАНОВЛЕНИЕ КАЛИБРОВКИ ===
 	if _document.calibrated:
 		field.set_corners(
 			_document.top_left,
@@ -336,10 +330,8 @@ func load_document(path: String) -> void:
 		print("✅ Калибровка восстановлена")
 		_draw_center_line()
 	
-	# === ОЧИСТКА СТАРЫХ УКРЫТИЙ ===
 	_clear_bunkers()
 	
-	# === ВОССТАНОВЛЕНИЕ УКРЫТИЙ ===
 	var restored_count = 0
 	for data in _document.bunkers:
 		var metric_pos = Vector2(data["x"], data["y"])
@@ -369,7 +361,6 @@ func load_document(path: String) -> void:
 	
 	print("✅ Восстановлено укрытий: %s" % restored_count)
 	
-	# === ВОССТАНОВЛЕНИЕ ИГРОКОВ ===
 	if _player_editor:
 		_player_editor.clear_players()
 		
@@ -395,7 +386,6 @@ func load_document(path: String) -> void:
 			var visual = PlayerVisual.new()
 			visual.setup(player, field, _field_editor)
 			
-			# Восстанавливаем состояние луча
 			var ray_enabled = data.get("ray_enabled", false)
 			if ray_enabled:
 				visual.enable_ray()
