@@ -25,6 +25,7 @@ func _input(event: InputEvent) -> void:
 	var mouse_pos := editor.get_global_mouse_position()
 	
 	if event is InputEventMouseButton:
+		# ЛКМ — выделение и перемещение
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if Input.is_key_pressed(KEY_SPACE):
@@ -38,6 +39,7 @@ func _input(event: InputEvent) -> void:
 						selected_bunker.select()
 						print("✅ Выделен бункер ID: %s" % selected_bunker.id)
 					
+					# Перемещение (не вращение)
 					dragging = true
 					drag_offset = mouse_pos - selected_bunker.position
 					mirror_bunker = _get_mirror_bunker(selected_bunker)
@@ -45,14 +47,9 @@ func _input(event: InputEvent) -> void:
 					_deselect_all()
 					dragging = false
 			else:
-				if is_rotating:
-					is_rotating = false
-					if selected_bunker:
-						selected_bunker.rotating = false
-						selected_bunker.queue_redraw()
-					print("🔄 Вращение завершено")
 				dragging = false
 		
+		# ПКМ — ВРАЩЕНИЕ!
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed and selected_bunker:
 				is_rotating = true
@@ -125,8 +122,8 @@ func _sync_mirror(bunker: Bunker) -> void:
 	
 	var center_px = field.get_center_pixel()
 	var dx = bunker.position.x - center_px.x
-	var mirror_pos = Vector2(center_px.x - dx, bunker.position.y)
 	
+	var mirror_pos = Vector2(center_px.x - dx, bunker.position.y)
 	mirror_bunker.position = mirror_pos
 	
 	var mirror_field_pos = field.screen_to_field(mirror_pos)

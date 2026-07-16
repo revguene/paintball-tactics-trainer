@@ -23,6 +23,8 @@ var drag_start_center: Vector2 = Vector2.ZERO
 var center_drag_enabled := false
 
 var editor_mode: int = EditorMode.Mode.FIELD_EDITOR
+var _game_engine: GameEngine = null
+var _game_ui: GameUI = null
 
 func _ready() -> void:
 	print("Paintball Tactical Editor v0.1.0")
@@ -48,7 +50,7 @@ func _ready() -> void:
 			main_menu.edit_field.connect(_on_edit_field_signal)
 			main_menu.save_project.connect(_on_save_project)
 			main_menu.load_project.connect(_on_load_project)
-			main_menu.game_mode.connect(_on_game_mode)
+			main_menu.game_mode_with_file.connect(_on_game_mode_with_file)
 			print("✅ MainMenu подключён")
 	
 	if hint:
@@ -56,6 +58,15 @@ func _ready() -> void:
 		hint.text = "Нажмите «Edit Field» чтобы загрузить изображение поля"
 		calibration_active = false
 		center_drag_enabled = false
+	
+	_setup_game_ui()
+
+func _setup_game_ui() -> void:
+	_game_ui = GameUI.new()
+	add_child(_game_ui)
+	_game_ui.finish_turn_pressed.connect(_on_finish_turn)
+	_game_ui.reset_game_pressed.connect(_on_reset_game)
+	_game_ui.visible = false
 
 func enter_field_editor() -> void:
 	editor_mode = EditorMode.Mode.FIELD_EDITOR
@@ -64,6 +75,8 @@ func enter_field_editor() -> void:
 		_field_editor.visible = true
 	if _player_editor:
 		_player_editor.visible = false
+	if hint:
+		hint.visible = true
 
 func enter_tactical_editor() -> void:
 	editor_mode = EditorMode.Mode.TACTICAL_EDITOR
@@ -72,14 +85,19 @@ func enter_tactical_editor() -> void:
 		_field_editor.visible = true
 	if _player_editor:
 		_player_editor.visible = true
+	if hint:
+		hint.visible = false
 
 func enter_game() -> void:
 	editor_mode = EditorMode.Mode.GAME
 	print("🎮 Режим: GAME")
+	# В GAME режиме ПОКАЗЫВАЕМ всё поле с бункерами и игроками
 	if _field_editor:
-		_field_editor.visible = false
+		_field_editor.visible = true
 	if _player_editor:
-		_player_editor.visible = false
+		_player_editor.visible = true
+	if hint:
+		hint.visible = false
 
 func is_field_editor() -> bool:
 	return editor_mode == EditorMode.Mode.FIELD_EDITOR
@@ -101,9 +119,10 @@ func _on_load_project(path: String) -> void:
 	enter_tactical_editor()
 	load_document(path)
 
-func _on_game_mode() -> void:
+func _on_game_mode_with_file(path: String) -> void:
 	enter_game()
-	load_document("user://project.ptf")
+	print("🎮 Загрузка файла для игры: %s" % path)
+	load_document(path)
 
 func load_field(path: String) -> void:
 	if not is_field_editor():
@@ -405,6 +424,36 @@ func load_document(path: String) -> void:
 		print("✅ Восстановлено игроков: %s" % restored_players)
 	
 	print("✅ Документ загружен: %s" % path)
+	
+	if is_game():
+		_start_game()
+
+func _start_game() -> void:
+	print("🎮 Запуск игры...")
+	
+	if not _game_engine:
+		_game_engine = GameEngine.new()
+		add_child(_game_engine)
+		
+		if not _player_editor:
+			_player_editor = PlayerEditor.new()
+			add_child(_player_editor)
+		
+		_game_engine.setup(_player_editor, _field_editor, field)
+	
+	if _game_ui:
+		_game_ui.visible = true
+	
+	_game_engine.start_breakout()
+
+func _on_finish_turn() -> void:
+	if _game_engine:
+		_game_engine.finish_player_turn()
+	else:
+		print("❌ GameEngine не инициализирован")
+
+func _on_reset_game() -> void:
+	get_tree().reload_current_scene()
 
 func _input(event: InputEvent) -> void:
 	if not calibration_active:
@@ -535,3 +584,17 @@ func get_field() -> Field:
 
 func is_calibrated() -> bool:
 	return field.calibrated
+
+
+# === ЗАГЛУШКИ ===
+func _on_game_state_changed(new_state):
+	print("Состояние игры: ", new_state)
+
+func _on_game_over(message):
+	print("Игра окончена: ", message)
+
+func _setup_load_dialog():
+	pass
+
+func _setup_field_context_menu():
+	pass

@@ -2,9 +2,9 @@ class_name MainMenu
 extends Control
 
 signal edit_field()
-signal save_project(path: String)   # Теперь с путём!
+signal save_project(path: String)
 signal load_project(path: String)
-signal game_mode()
+signal game_mode_with_file(path: String)  # Только этот сигнал для Game
 signal exit_app()
 
 var _file_dialog: FileDialog = null
@@ -77,13 +77,21 @@ func _setup_save_dialog() -> void:
 
 func _on_file_selected(path: String) -> void:
 	var ext = path.get_extension().to_lower()
+	print("📁 Выбран файл: %s (расширение: %s)" % [path, ext])
+	
 	if ext in ["png", "jpg", "jpeg"]:
 		edit_field.emit()
 		var main = get_tree().current_scene
 		if main and main.has_method("load_field"):
 			main.load_field(path)
 	elif ext == "ptf":
-		load_project.emit(path)
+		# Определяем, откуда вызов - из Load Project или Game
+		if _file_dialog.title == "Выберите файл поля для игры":
+			print("🎮 Загрузка Game файла: %s" % path)
+			game_mode_with_file.emit(path)
+		else:
+			print("📂 Загрузка Project файла: %s" % path)
+			load_project.emit(path)
 
 func _on_save_file_selected(path: String) -> void:
 	if not path.ends_with(".ptf"):
@@ -92,7 +100,7 @@ func _on_save_file_selected(path: String) -> void:
 	save_project.emit(path)
 
 func _on_file_dialog_canceled() -> void:
-	print("Выбор файла отменён")
+	print("❌ Выбор файла отменён")
 
 func open_image_dialog() -> void:
 	_file_dialog.title = "Выберите изображение поля"
@@ -109,6 +117,11 @@ func open_load_dialog() -> void:
 	_file_dialog.add_filter("*.ptf", "Paintball Tactical File")
 	_file_dialog.popup_centered()
 
+func open_game_dialog() -> void:
+	_file_dialog.title = "Выберите файл поля для игры"
+	_file_dialog.add_filter("*.ptf", "Paintball Tactical File")
+	_file_dialog.popup_centered()
+
 func _on_edit_field_pressed() -> void:
 	open_image_dialog()
 
@@ -119,7 +132,8 @@ func _on_load_project_pressed() -> void:
 	open_load_dialog()
 
 func _on_game_pressed() -> void:
-	game_mode.emit()
+	print("🎮 Нажата кнопка Game - открываем диалог выбора файла")
+	open_game_dialog()
 
 func _on_exit_pressed() -> void:
 	print("🚪 Выход из приложения")

@@ -14,10 +14,11 @@ var _menu_visual: PlayerVisual = null
 
 var _last_click_time: float = 0.0
 var _last_clicked_player: PlayerVisual = null
+var _last_click_button: int = 0
 const DOUBLE_CLICK_TIME := 0.3
 
 const WHEEL_ROTATION_DEGREES := 0.5
-const PLAYER_RADIUS := 0.4  # Радиус игрока в метрах
+const PLAYER_RADIUS := 0.4
 
 func set_field_reference(field: Field) -> void:
 	field_ref = field
@@ -79,6 +80,18 @@ func _on_menu_option_selected(option: String) -> void:
 	_menu_visual = null
 
 func _input(event: InputEvent) -> void:
+	# === TAB - СМЕНА НАПРАВЛЕНИЯ ЛУЧА ===
+	if event is InputEventKey and event.pressed and event.keycode == KEY_TAB:
+		if selected_player:
+			selected_player.player.toggle_ray_origin()
+			selected_player.queue_redraw()
+			print("↔️ Смена направления (Tab): ", selected_player.player.get_ray_origin_name())
+			get_viewport().set_input_as_handled()
+			return
+		else:
+			get_viewport().set_input_as_handled()
+			return
+	
 	var main = get_tree().current_scene
 	if not main or not main.has_method("is_tactical_editor"):
 		return
@@ -92,6 +105,7 @@ func _input(event: InputEvent) -> void:
 	var mouse_pos := get_global_mouse_position()
 	
 	if event is InputEventMouseButton:
+		# === ЛКМ ===
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if _context_menu and _context_menu.visible:
@@ -103,25 +117,21 @@ func _input(event: InputEvent) -> void:
 					var current_time = Time.get_ticks_msec() / 1000.0
 					var time_since_last = current_time - _last_click_time
 					
-					if _last_clicked_player == clicked and time_since_last < DOUBLE_CLICK_TIME:
-						print("🔄 Двойной клик по игроку %d" % clicked.player.number)
+					# === ДВОЙНОЙ КЛИК ЛКМ - ИЗМЕНЕНИЕ ДЛИНЫ ЛУЧА ===
+					if _last_click_button == 1 and _last_clicked_player == clicked and time_since_last < DOUBLE_CLICK_TIME:
+						print("🔄 ДВОЙНОЙ КЛИК ЛКМ по игроку %d - изменение длины луча!" % clicked.player.number)
 						_select_player(clicked)
 						
-						clicked.player.set_ray_origin_center()
-						print("↔️ Направление луча: ЦЕНТР")
-						
-						if clicked.is_handle_extended():
-							clicked.disable_ray()
-							if clicked.is_editing_ray:
-								clicked.stop_editing()
-							print("⏸️ Луч выключен")
-						else:
+						if not clicked.is_handle_extended():
 							clicked.enable_ray()
-							print("🔫 Луч включен (длина: %.1f м)" % clicked.ray_length_metric)
+							print("🔫 Луч включен")
 						
-						clicked.queue_redraw()
+						clicked.start_editing()
+						print("📏 Режим изменения длины луча активирован")
+						
 						_last_click_time = 0.0
 						_last_clicked_player = null
+						_last_click_button = 0
 						get_viewport().set_input_as_handled()
 						return
 					else:
@@ -132,6 +142,7 @@ func _input(event: InputEvent) -> void:
 						
 						_last_click_time = current_time
 						_last_clicked_player = clicked
+						_last_click_button = 1
 				else:
 					if selected_player:
 						if selected_player.is_editing_ray:
@@ -142,6 +153,7 @@ func _input(event: InputEvent) -> void:
 					dragging = false
 					_last_click_time = 0.0
 					_last_clicked_player = null
+					_last_click_button = 0
 					_block_camera_zoom(false)
 					
 					if _context_menu and _context_menu.visible:
@@ -149,45 +161,49 @@ func _input(event: InputEvent) -> void:
 			else:
 				dragging = false
 		
+		# === ПКМ ===
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed:
+				if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+					return
+				
 				if selected_player and selected_player.is_editing_ray and selected_player.is_over_ray_handle(mouse_pos):
 					selected_player.is_dragging_handle = true
 					selected_player.drag_start_pos = mouse_pos
 					selected_player.drag_original_length = selected_player.ray_length_metric
-					print("🎯 Перетаскивание ручки")
+					print("🎯 Перетаскивание ручки ПКМ начато")
 					get_viewport().set_input_as_handled()
 					return
 				
-				if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-					var clicked = _get_player_at(mouse_pos)
-					if clicked:
-						_menu_visual = clicked
-						_select_player(clicked)
-						if _context_menu:
-							_context_menu.show_menu(clicked.player, clicked, mouse_pos)
-							print("📋 Открыто меню для игрока %d" % clicked.player.number)
-							get_viewport().set_input_as_handled()
-					else:
-						if selected_player:
-							if selected_player.is_editing_ray:
-								selected_player.stop_editing()
-							selected_player.deselect()
-							selected_player = null
-						_block_camera_zoom(false)
+				var clicked = _get_player_at(mouse_pos)
+				if clicked:
+					_menu_visual = clicked
+					_select_player(clicked)
+					if _context_menu:
+						_context_menu.show_menu(clicked.player, clicked, mouse_pos)
+						print("📋 Открыто меню для игрока %d" % clicked.player.number)
+						get_viewport().set_input_as_handled()
+				else:
+					if selected_player:
+						if selected_player.is_editing_ray:
+							selected_player.stop_editing()
+						selected_player.deselect()
+						selected_player = null
+					_block_camera_zoom(false)
 			else:
 				if selected_player and selected_player.is_dragging_handle:
 					selected_player.is_dragging_handle = false
-					print("✅ Перетаскивание завершено")
+					print("✅ Перетаскивание ручки завершено")
 		
+		# === КОЛЁСИКО МЫШИ - ВРАЩЕНИЕ ИГРОКА ===
 		if selected_player:
-			if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 				selected_player.player.rotation -= deg_to_rad(WHEEL_ROTATION_DEGREES)
 				selected_player.queue_redraw()
 				print("🔄 Влево: -%.1f°" % WHEEL_ROTATION_DEGREES)
 				get_viewport().set_input_as_handled()
 			
-			if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				selected_player.player.rotation += deg_to_rad(WHEEL_ROTATION_DEGREES)
 				selected_player.queue_redraw()
 				print("🔄 Вправо: +%.1f°" % WHEEL_ROTATION_DEGREES)
@@ -255,16 +271,12 @@ func _resolve_collision(from_pos: Vector2, to_pos: Vector2) -> Vector2:
 	
 	return from_pos
 
-# === ПРОВЕРКА СТОЛКНОВЕНИЯ СО ВСЕМИ БУНКЕРАМИ (включая зеркальные!) ===
 func _check_bunker_collision(player_pos: Vector2) -> bool:
 	if not editor_ref:
 		return false
 	
 	for child in editor_ref.get_children():
 		if child is Bunker:
-			# Убираем проверку is_mirror!
-			# Проверяем ВСЕ бункеры, включая зеркальные
-			
 			var geometry = child.get_geometry()
 			if not geometry:
 				continue
@@ -294,9 +306,6 @@ func _check_bunker_collision(player_pos: Vector2) -> bool:
 				return true
 	
 	return false
-
-func _move_player(mouse_pos: Vector2) -> void:
-	_move_player_with_sliding(mouse_pos)
 
 func create_player(team: int, screen_pos: Vector2) -> void:
 	if not field_ref:

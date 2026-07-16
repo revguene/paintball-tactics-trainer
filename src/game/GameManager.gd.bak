@@ -1,0 +1,400 @@
+class_name GameManager
+extends Node
+
+enum GameState {
+	EDITOR,
+	SETUP,          # Игрок расставляет RED
+	AI_SETUP,       # AI создает и расставляет BLUE
+	BREAKOUT_CHECK, # Проверка разбежки
+	PLAYER_TURN,    # Ход игрока
+	AI_TURN,        # Ход AI
+	CHECK_SHOTS,    # Проверка выстрелов
+	GAME_OVER
+}
+
+enum GameMode {
+	HUMAN_VS_AI,
+	AI_VS_AI
+}
+
+const PLAYER_RADIUS := 0.3
+const BREAKOUT_CHANCE := 0.10
+
+var state: GameState = GameState.EDITOR
+var game_mode: GameMode = GameMode.HUMAN_VS_AI
+
+var _field_editor: FieldEditor = null
+var _player_editor: PlayerEditor = null
+
+# Игроки
+var _human_players: Array = []  # PlayerVisual (RED)
+var _ai_players: Array = []     # PlayerVisual (BLUE)
+var _ai_models: Array = []      # Player модели
+
+var _all_bunkers: Array[Bunker] = []
+var _right_bunkers: Array[Bunker] = []
+
+signal state_changed(new_state: GameState)
+signal game_over(message: String)
+
+func _ready() -> void:
+	state = GameState.EDITOR
+	print("🎮 GameManager готов")
+
+func setup(editor: FieldEditor, player_editor: PlayerEditor) -> void:
+	_field_editor = editor
+	_player_editor = player_editor
+	print("✅ GameManager: редакторы подключены")
+
+func start_game(mode: GameMode = GameMode.HUMAN_VS_AI) -> void:
+	if state != GameState.EDITOR:
+		print("⚠️ Игра уже начата!")
+		return
+	
+	game_mode = mode
+	print("🎮 Запуск игры в режиме: ", _mode_name(mode))
+	
+	# Собираем бункеры
+	_collect_bunkers()
+	
+	# Очищаем старых BLUE игроков (если есть)
+	_clear_blue_players()
+	
+	# Создаем AI команду (BLUE)
+	_create_ai_team()
+	
+	# Переходим в режим расстановки RED
+	_set_state(GameState.SETUP)
+	print("👤 Расставьте RED игроков и нажмите 'ГОТОВО'")
+
+func _mode_name(mode: GameMode) -> String:
+	match mode:
+		GameMode.HUMAN_VS_AI: return "Human vs AI"
+		GameMode.AI_VS_AI: return "AI vs AI"
+		_: return "Unknown"
+
+func _collect_bunkers() -> void:
+	_all_bunkers.clear()
+	_right_bunkers.clear()
+	
+	for child in _field_editor.get_children():
+		if child is Bunker:
+			_all_bunkers.append(child)
+			if child.field_position.x > Field.WIDTH * 0.5:
+				_right_bunkers.append(child)
+	
+	print("📦 Найдено бункеров: ", _all_bunkers.size())
+	print("   На правой стороне: ", _right_bunkers.size())
+
+func _clear_blue_players() -> void:
+	# Удаляем всех BLUE игроков из PlayerEditor
+	var to_remove: Array = []
+	for visual in _player_editor.players:
+		if visual.player and visual.player.team == Player.Team.BLUE:
+			to_remove.append(visual)
+	
+	for visual in to_remove:
+		_player_editor.players.erase(visual)
+		if _player_editor.selected_player == visual:
+			_player_editor.selected_player = null
+		visual.queue_free()
+	
+	print("🧹 Удалено BLUE игроков: ", to_remove.size())
+
+func _create_ai_team() -> void:
+	print("🤖 Создание AI команды (BLUE)...")
+	
+	var field = _field_editor.get_field()
+	if not field or not field.calibrated:
+		print("⚠️ Поле не откалибровано!")
+		return
+	
+	# Создаем 5 BLUE игроков на стартовых позициях (баннер)
+	for i in range(5):
+		var screen_pos = Vector2(880, 200 + i * 80)  # Примерные координаты
+		
+		# Создаем игрока через PlayerEditor
+		_player_editor.create_player(Player.Team.BLUE, screen_pos)
+		
+		# Получаем последнего созданного игрока
+		var visual = _player_editor.players[_player_editor.players.size() - 1]
+		var player = visual.player
+		
+		# Устанавливаем стартовую позицию на баннере (в метрах)
+		player.position_metric = Vector2(40.0, 10.0 + i * 6.0)
+		player.rotation = PI  # Смотрят влево
+		
+		# Обновляем визуал
+		visual.update_position()
+		visual.queue_redraw()
+		
+		print("   BLUE игрок ", player.number, " создан на баннере")
+	
+	# Сохраняем ссылки на AI игроков
+	_collect_players()
+
+func _collect_players() -> void:
+	print("👥 Сбор игроков из PlayerEditor...")
+	
+	_human_players.clear()
+	_ai_players.clear()
+	_ai_models.clear()
+	
+	for visual in _player_editor.players:
+		if not visual or not visual.player:
+			continue
+		
+		var player = visual.player
+		
+		if player.team == Player.Team.RED:
+			_human_players.append(visual)
+			print("   RED игрок ", player.number, " на (", player.position_metric.x, ", ", player.position_metric.y, ")")
+		elif player.team == Player.Team.BLUE:
+			_ai_players.append(visual)
+			_ai_models.append(player)
+			print("   BLUE игрок ", player.number, " на (", player.position_metric.x, ", ", player.position_metric.y, ")")
+	
+	print("   Всего RED: ", _human_players.size())
+	print("   Всего BLUE: ", _ai_models.size())
+
+# ==================== ФАЗА 1: РАССТАНОВКА RED ====================
+
+func finish_setup() -> void:
+	if state != GameState.SETUP:
+		print("⚠️ Сейчас не фаза расстановки!")
+		return
+	
+	print("👤 Игрок завершил расстановку RED!")
+	
+	# Переходим к AI расстановке
+	_set_state(GameState.AI_SETUP)
+	_perform_ai_setup()
+
+func _perform_ai_setup() -> void:
+	print("🤖 AI занимает укрытия...")
+	
+	# Обновляем список AI игроков
+	_collect_players()
+	
+	if _ai_models.is_empty():
+		print("⚠️ Нет AI игроков для расстановки!")
+		_set_state(GameState.PLAYER_TURN)
+		return
+	
+	if _right_bunkers.is_empty():
+		print("⚠️ Нет укрытий для AI! Использую все бункеры")
+		var available = _all_bunkers.duplicate()
+		available.shuffle()
+		_right_bunkers = available
+	
+	# Перемешиваем и выбираем укрытия
+	var shuffled = _right_bunkers.duplicate()
+	shuffled.shuffle()
+	
+	var count = mini(_ai_models.size(), shuffled.size())
+	
+	print("   Расставляю ", count, " AI игроков...")
+	
+	for i in range(count):
+		var player = _ai_models[i]
+		var bunker = shuffled[i]
+		
+		# Мгновенный телепорт к укрытию
+		var offset = Vector2(-0.5, 0.0)
+		player.position_metric = bunker.field_position + offset
+		player.current_bunker = bunker
+		
+		print("   AI игрок ", player.number, " → ", 
+			  BunkerType.get_display_name(bunker.bunker_type),
+			  " на (", player.position_metric.x, ", ", player.position_metric.y, ")")
+		
+		# Обновляем визуал
+		if i < _ai_players.size():
+			var visual = _ai_players[i]
+			if is_instance_valid(visual):
+				visual.update_position()
+				visual.queue_redraw()
+	
+	# Переходим к проверке разбежки
+	_set_state(GameState.BREAKOUT_CHECK)
+	_check_breakout()
+
+# ==================== ФАЗА 2: РАЗБЕЖКА ====================
+
+func _check_breakout() -> void:
+	print("🔫 Проверка поражений на разбежке...")
+	
+	var eliminated_humans = 0
+	var eliminated_ais = 0
+	
+	# Проверяем AI → Human
+	for ai in _ai_models:
+		if ai.status == Player.Status.ELIMINATED:
+			continue
+		
+		for human_visual in _human_players:
+			if not human_visual.player or human_visual.player.status == Player.Status.ELIMINATED:
+				continue
+			
+			if _is_ray_hitting_player(ai, human_visual.player.position_metric):
+				if randf() < BREAKOUT_CHANCE:
+					human_visual.player.status = Player.Status.ELIMINATED
+					human_visual.queue_redraw()
+					eliminated_humans += 1
+					print("💀 Игрок ", human_visual.player.number, " поражен на разбежке!")
+					break
+	
+	# Проверяем Human → AI
+	for human_visual in _human_players:
+		if not human_visual.player or human_visual.player.status == Player.Status.ELIMINATED:
+			continue
+		
+		for ai in _ai_models:
+			if ai.status == Player.Status.ELIMINATED:
+				continue
+			
+			if _is_ray_hitting_player(human_visual.player, ai.position_metric):
+				if randf() < BREAKOUT_CHANCE:
+					ai.status = Player.Status.ELIMINATED
+					eliminated_ais += 1
+					print("💀 AI игрок ", ai.number, " поражен на разбежке!")
+					break
+	
+	print("   Поражено людей: ", eliminated_humans)
+	print("   Поражено AI: ", eliminated_ais)
+	print("   Human alive: ", _count_alive_humans())
+	print("   AI alive: ", _count_alive_ai())
+	
+	# Переходим к игре
+	_set_state(GameState.PLAYER_TURN)
+	print("🎯 Игра началась! Ход игрока")
+
+# ==================== ФАЗА 3: ИГРА ====================
+
+func finish_player_turn() -> void:
+	if state != GameState.PLAYER_TURN:
+		print("⚠️ Сейчас не ход игрока!")
+		return
+	
+	print("👤 Игрок завершил ход!")
+	_set_state(GameState.AI_TURN)
+	call_deferred("_process_ai_turn")
+
+func _process_ai_turn() -> void:
+	print("🤖 AI думает...")
+	
+	# TODO: Логика AI для выбора следующего укрытия
+	# Пока AI просто стоит на месте
+	
+	_check_shots()
+	
+	_set_state(GameState.PLAYER_TURN)
+	print("🎯 Ход игрока!")
+
+func _check_shots() -> void:
+	print("🔫 Проверка выстрелов...")
+	
+	var eliminated = 0
+	
+	# AI → Human
+	for ai in _ai_models:
+		if ai.status == Player.Status.ELIMINATED:
+			continue
+		
+		for human_visual in _human_players:
+			if not human_visual.player or human_visual.player.status == Player.Status.ELIMINATED:
+				continue
+			
+			if _is_ray_hitting_player(ai, human_visual.player.position_metric):
+				human_visual.player.status = Player.Status.ELIMINATED
+				human_visual.queue_redraw()
+				eliminated += 1
+				print("💀 Игрок ", human_visual.player.number, " поражен!")
+				break
+	
+	# Human → AI
+	for human_visual in _human_players:
+		if not human_visual.player or human_visual.player.status == Player.Status.ELIMINATED:
+			continue
+		
+		for ai in _ai_models:
+			if ai.status == Player.Status.ELIMINATED:
+				continue
+			
+			if _is_ray_hitting_player(human_visual.player, ai.position_metric):
+				ai.status = Player.Status.ELIMINATED
+				eliminated += 1
+				print("💀 AI игрок ", ai.number, " поражен!")
+				break
+	
+	print("   Поражено: ", eliminated)
+	
+	# Проверяем конец игры
+	var humans_alive = _count_alive_humans()
+	var ai_alive = _count_alive_ai()
+	
+	if humans_alive == 0:
+		_set_state(GameState.GAME_OVER)
+		game_over.emit("🏆 AI победил!")
+		print("🏆 AI победил!")
+	elif ai_alive == 0:
+		_set_state(GameState.GAME_OVER)
+		game_over.emit("🏆 Игрок победил!")
+		print("🏆 Игрок победил!")
+
+# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+
+func _is_ray_hitting_player(shooter: Player, target_pos: Vector2) -> bool:
+	var origin = shooter.position_metric
+	var direction = Vector2(1, 0).rotated(shooter.rotation)
+	
+	var to_target = target_pos - origin
+	var proj = to_target.dot(direction)
+	
+	if proj < 0:
+		return false
+	
+	var closest = origin + direction * proj
+	var dist = closest.distance_to(target_pos)
+	
+	return dist < PLAYER_RADIUS
+
+func _count_alive_humans() -> int:
+	var count = 0
+	for visual in _human_players:
+		if visual.player and visual.player.status == Player.Status.ACTIVE:
+			count += 1
+	return count
+
+func _count_alive_ai() -> int:
+	var count = 0
+	for player in _ai_models:
+		if player.status == Player.Status.ACTIVE:
+			count += 1
+	return count
+
+func _set_state(new_state: GameState) -> void:
+	state = new_state
+	state_changed.emit(new_state)
+	print("📊 Фаза игры: ", _state_name(new_state))
+
+func _state_name(s: GameState) -> String:
+	match s:
+		GameState.EDITOR: return "EDITOR"
+		GameState.SETUP: return "SETUP"
+		GameState.AI_SETUP: return "AI_SETUP"
+		GameState.BREAKOUT_CHECK: return "BREAKOUT_CHECK"
+		GameState.PLAYER_TURN: return "PLAYER_TURN"
+		GameState.AI_TURN: return "AI_TURN"
+		GameState.CHECK_SHOTS: return "CHECK_SHOTS"
+		GameState.GAME_OVER: return "GAME_OVER"
+		_: return "UNKNOWN"
+
+func get_state() -> GameState:
+	return state
+
+func get_human_players() -> Array:
+	return _human_players
+
+func get_ai_players() -> Array:
+	return _ai_models
