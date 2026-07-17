@@ -1,0 +1,87 @@
+WorkerThreadPool: 4 threads, 1 max low-priority.
+Godot Engine v4.5.stable.official.876b29033 - https://godotengine.org
+TextServer: Added interface "Dummy"
+TextServer: Added interface "ICU / HarfBuzz / Graphite (Built-in)"
+Unrecognized output string "misc2" in mapping:
+030000000d0f0000ab01000011010000,Horipad Steam,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,misc2:b2,paddle1:b19,paddle2:b18,paddle3:b15,paddle4:b5,rightshoulder:b7,rightstick:b14,righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4,platform:Linux,
+Unrecognized output string "misc2" in mapping:
+050000000d0f00009601000091000000,Horipad Steam,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,misc2:b2,paddle1:b19,paddle2:b18,paddle3:b15,paddle4:b5,rightshoulder:b7,rightstick:b14,righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4,platform:Linux,
+Unrecognized output string "misc2" in mapping:
+030000007e0500006920000011010000,Nintendo Switch 2 Pro Controller,a:b0,b:b1,back:b14,dpdown:b8,dpleft:b10,dpright:b9,dpup:b11,guide:b16,leftshoulder:b12,leftstick:b15,lefttrigger:b13,leftx:a0,lefty:a1~,misc1:b17,misc2:b20,paddle1:b18,paddle2:b19,rightshoulder:b4,rightstick:b7,righttrigger:b5,rightx:a2,righty:a3~,start:b6,x:b2,y:b3,platform:Linux,
+SDL: Init OK!
+xkbcommon: ERROR: /snap/godot4/10/gnome-platform/usr/share/X11/locale/ru_RU.UTF-8/Compose:1:9: failed to open included Compose file "/usr/share/X11/locale/en_US.UTF-8/Compose": No such file or directory
+xkbcommon: ERROR: /snap/godot4/10/gnome-platform/usr/share/X11/locale/ru_RU.UTF-8/Compose:1:9: failed to parse file
+Xshape 1.1 detected.
+Xinerama 1.1 detected.
+Xrandr 1.6 detected.
+Xrender 0.11 detected.
+Xinput 2.2 detected.
+XInput: Refreshing devices.
+XInput: Absolute pointing device: xwayland-pointer:14
+XInput: No touch devices found.
+Custom libGL override detected. Skipping GPU detection
+DBus 1.12.20 detected.
+Using "default" pen tablet driver...
+Shader 'CanvasSdfShaderGLES3' SHA256: 557174d10ff36fd4235500f5f3b2017f8b3ead15cfa091f38a4a48ea724f277a
+Shader 'SkeletonShaderGLES3' SHA256: 5b5523594b1503c526e2ed823da4dabc33ef3fc617ff7120192142673831c301
+Shader 'ParticlesShaderGLES3' SHA256: 6bd7b45a0cbe966ef3640c515eb476b0f4aab08eb3577b7f4c7b249a7d57adc2
+Shader 'ParticlesCopyShaderGLES3' SHA256: d903cbd01c19f1684c2a79196b2e90e0a306afa517e790521d6f43c2f6948fb6
+Shader 'CopyShaderGLES3' SHA256: 034ce0b7e14b14d35a0924eb8b3d33defa1ce51ad848864247a9d99a12ecf3ed
+Shader 'CubemapFilterShaderGLES3' SHA256: 88c416a060917262dc07d41166972a72f54cfe516e6703174b9307b88d4820fb
+Shader 'GlowShaderGLES3' SHA256: b6df04522de1943abd6f12faf2f851cb0392b73d53dfb0f3ca89a740eb1e8cdf
+Shader 'PostShaderGLES3' SHA256: ae0ab4165f54d7dd6f441bc8bf45a9bb5b63bce12bd9982b816a1875b0163c5c
+Shader 'FeedShaderGLES3' SHA256: 1f47c7353339bd3851d1153c797cd79edad8fe4b59f90cc435979451d28ec1ee
+Shader 'CanvasShaderGLES3' SHA256: c850bc773f5a4eb9993c9cad6e61c68c9fee72a26aa2019e7914507e8888a70a
+Shader 'CanvasOcclusionShaderGLES3' SHA256: 5ecaed95d1120e9af06b36549220ec1ccfd2a51ada4564bdd6d526024a4fc7e3
+Shader 'SceneShaderGLES3' SHA256: 4788c807c2f682d6a6529f96fcfaf64b0ef99d625dc4b366ed85df1fc1b9815e
+Shader 'SkyShaderGLES3' SHA256: dd1f5d25f06f16ef5ffdd0d81240d6fa296df48a94de7550026bc2ec30408992
+OpenGL API 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0~bpo22.04.1~ppa1 - Compatibility - Using Device: Mesa - AMD ARUBA (DRM 2.51.0 / 6.17.0-35-generic, LLVM 20.1.2)
+PulseAudio 15.99.0 detected.
+PulseAudio: context other
+PulseAudio: context other
+PulseAudio: context other
+PulseAudio: context ready
+PulseAudio: Detecting channels for device: alsa_output.pci-0000_00_14.2.analog-stereo
+PulseAudio: detected 2 output channels
+PulseAudio: audio buffer frames: 512 calculated output latency: 11ms
+
+TextServer: Primary interface set to: "ICU / HarfBuzz / Graphite (Built-in)".
+CORE API HASH: 2213950498
+EDITOR API HASH: 3825216437
+SceneTreeFTI: traversal method DEFAULT
+Loaded system CA certificates
+Loading resource: res://scenes/Main.tscn
+Loading resource: res://scenes/Main.gd
+SCRIPT ERROR: Parse Error: Identifier "_on_game_state_changed" not declared in the current scope.
+          at: GDScript::reload (res://scenes/Main.gd:53)
+SCRIPT ERROR: Parse Error: Identifier "_on_game_over" not declared in the current scope.
+          at: GDScript::reload (res://scenes/Main.gd:54)
+SCRIPT ERROR: Parse Error: Function "_setup_load_dialog()" not found in base self.
+          at: GDScript::reload (res://scenes/Main.gd:69)
+SCRIPT ERROR: Parse Error: Function "_setup_field_context_menu()" not found in base self.
+          at: GDScript::reload (res://scenes/Main.gd:70)
+SCRIPT ERROR: Parse Error: Identifier "_on_edit_field_signal" not declared in the current scope.
+          at: GDScript::reload (res://scenes/Main.gd:78)
+SCRIPT ERROR: Parse Error: Identifier "_on_save_project" not declared in the current scope.
+          at: GDScript::reload (res://scenes/Main.gd:79)
+SCRIPT ERROR: Parse Error: Identifier "_on_load_project" not declared in the current scope.
+          at: GDScript::reload (res://scenes/Main.gd:80)
+SCRIPT ERROR: Parse Error: Identifier "_on_game_mode" not declared in the current scope.
+          at: GDScript::reload (res://scenes/Main.gd:81)
+ERROR: Failed to load script "res://scenes/Main.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:3041)
+Loading resource: res://src/ui/FieldView.gd
+Loading resource: res://src/ui/MainMenu.gd
+Loading resource: res://src/editor/CameraController.gd
+Loading resource: res://src/editor/FieldEditor.gd
+Loading resource: res://src/editor/PlayerEditor.gd
+PortalDesktop: org.freedesktop.portal.FileChooser version 3 detected.
+🔧 Инструмент: 0
+FieldEditor готов, инструмент: SELECT
+✅ PlayerEditor готов
+🎮 Запуск игрового режима!
+🎮 Запуск игрового режима!
+XR: Clearing primary interface
+XR: Removed interface "Native mobile"
+XR: Removed interface "OpenXR"
+PulseAudio: context terminated

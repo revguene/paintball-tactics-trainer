@@ -1,0 +1,400 @@
+class_name PlayerEditor
+extends Node2D
+
+var players: Array[PlayerVisual] = []
+var selected_player: PlayerVisual = null
+var dragging := false
+var drag_offset := Vector2.ZERO
+var next_id: int = 1
+var field_ref: Field = null
+var editor_ref: FieldEditor = null
+
+var _context_menu: PlayerContextMenu = null
+var _menu_visual: PlayerVisual = null
+
+var _last_click_time: float = 0.0
+var _last_clicked_player: PlayerVisual = null
+const DOUBLE_CLICK_TIME := 0.3
+
+const WHEEL_ROTATION_DEGREES := 0.5
+const PLAYER_RADIUS := 0.4
+
+func set_field_reference(field: Field) -> void:
+	field_ref = field
+
+func set_editor_reference(editor: FieldEditor) -> void:
+	editor_ref = editor
+
+func _ready() -> void:
+	print("✅ PlayerEditor готов")
+	_setup_context_menu()
+
+func _setup_context_menu() -> void:
+	_context_menu = PlayerContextMenu.new()
+	_context_menu.option_selected.connect(_on_menu_option_selected)
+	add_child(_context_menu)
+
+func _on_menu_option_selected(option: String) -> void:
+	if not _menu_visual or not _menu_visual.player:
+		return
+	
+	var player = _menu_visual.player
+	
+	match option:
+		"extend":
+			print("🔫 Стрельба: игрок %d стреляет!" % player.number)
+			_select_player(_menu_visual)
+			_menu_visual.enable_ray()
+		
+		"hide_handle":
+			print("⏸️ Ожидание: убрать луч игрока %d" % player.number)
+			_select_player(_menu_visual)
+			_menu_visual.disable_ray()
+		
+		"switch_origin":
+			player.toggle_ray_origin()
+			print("↔️ Смена направления: %s" % player.get_ray_origin_name())
+			_select_player(_menu_visual)
+			_menu_visual.queue_redraw()
+		
+		"adjust_ray":
+			print("📏 Изменение длины луча игрока %d" % player.number)
+			_select_player(_menu_visual)
+			if not _menu_visual.is_handle_extended():
+				_menu_visual.enable_ray()
+			_menu_visual.start_editing()
+		
+		"toggle_status":
+			if player.status == Player.Status.ACTIVE:
+				player.status = Player.Status.ELIMINATED
+				print("⭕ Игрок %d поражен!" % player.number)
+			else:
+				player.status = Player.Status.ACTIVE
+				print("🟢 Игрок %d в игре!" % player.number)
+			_menu_visual.queue_redraw()
+		
+		"delete":
+			_remove_player(_menu_visual)
+	
+	_menu_visual = null
+
+func _input(event: InputEvent) -> void:
+	# === TAB - СМЕНА НАПРАВЛЕНИЯ ЛУЧА ===
+	if event is InputEventKey and event.pressed and event.keycode == KEY_TAB:
+		print("🔍 TAB нажат! selected_player=", selected_player)
+		if selected_player:
+			selected_player.player.toggle_ray_origin()
+			selected_player.queue_redraw()
+			print("↔️ Смена направления (Tab): ", selected_player.player.get_ray_origin_name())
+			get_viewport().set_input_as_handled()
+			return
+		else:
+			print("⚠️ TAB нажат, но игрок не выделен")
+			get_viewport().set_input_as_handled()
+			return
+	
+	var main = get_tree().current_scene
+	if not main or not main.has_method("is_tactical_editor"):
+		return
+	
+	if not main.is_tactical_editor():
+		return
+	
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		return
+	
+	var mouse_pos := get_global_mouse_position()
+	
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				if _context_menu and _context_menu.visible:
+					_context_menu.hide()
+				
+				var clicked = _get_player_at(mouse_pos)
+				
+				if clicked:
+					var current_time = Time.get_ticks_msec() / 1000.0
+					var time_since_last = current_time - _last_click_time
+					
+					if _last_clicked_player == clicked and time_since_last < DOUBLE_CLICK_TIME:
+						print("🔄 Двойной клик по игроку %d" % clicked.player.number)
+						_select_player(clicked)
+						
+						clicked.player.set_ray_origin_center()
+						print("↔️ Направление луча: ЦЕНТР")
+						
+						if clicked.is_handle_extended():
+							clicked.disable_ray()
+							if clicked.is_editing_ray:
+								clicked.stop_editing()
+							print("⏸️ Луч выключен")
+						else:
+							clicked.enable_ray()
+							print("🔫 Луч включен (длина: %.1f м)" % clicked.ray_length_metric)
+						
+						clicked.queue_redraw()
+						_last_click_time = 0.0
+						_last_clicked_player = null
+						get_viewport().set_input_as_handled()
+						return
+					else:
+						_select_player(clicked)
+						dragging = true
+						drag_offset = mouse_pos - clicked.position
+						print("📦 Перемещение игрока %d" % clicked.player.number)
+						
+						_last_click_time = current_time
+						_last_clicked_player = clicked
+				else:
+					if selected_player:
+						if selected_player.is_editing_ray:
+							selected_player.stop_editing()
+						selected_player.deselect()
+						selected_player = null
+					
+					dragging = false
+					_last_click_time = 0.0
+					_last_clicked_player = null
+					_block_camera_zoom(false)
+					
+					if _context_menu and _context_menu.visible:
+						_context_menu.hide()
+			else:
+				dragging = false
+		
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				if selected_player and selected_player.is_editing_ray and selected_player.is_over_ray_handle(mouse_pos):
+					selected_player.is_dragging_handle = true
+					selected_player.drag_start_pos = mouse_pos
+					selected_player.drag_original_length = selected_player.ray_length_metric
+					print("🎯 Перетаскивание ручки")
+					get_viewport().set_input_as_handled()
+					return
+				
+				if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+					var clicked = _get_player_at(mouse_pos)
+					if clicked:
+						_menu_visual = clicked
+						_select_player(clicked)
+						if _context_menu:
+							_context_menu.show_menu(clicked.player, clicked, mouse_pos)
+							print("📋 Открыто меню для игрока %d" % clicked.player.number)
+							get_viewport().set_input_as_handled()
+					else:
+						if selected_player:
+							if selected_player.is_editing_ray:
+								selected_player.stop_editing()
+							selected_player.deselect()
+							selected_player = null
+						_block_camera_zoom(false)
+			else:
+				if selected_player and selected_player.is_dragging_handle:
+					selected_player.is_dragging_handle = false
+					print("✅ Перетаскивание завершено")
+		
+		if selected_player:
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+				selected_player.player.rotation -= deg_to_rad(WHEEL_ROTATION_DEGREES)
+				selected_player.queue_redraw()
+				print("🔄 Влево: -%.1f°" % WHEEL_ROTATION_DEGREES)
+				get_viewport().set_input_as_handled()
+			
+			if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+				selected_player.player.rotation += deg_to_rad(WHEEL_ROTATION_DEGREES)
+				selected_player.queue_redraw()
+				print("🔄 Вправо: +%.1f°" % WHEEL_ROTATION_DEGREES)
+				get_viewport().set_input_as_handled()
+	
+	if event is InputEventMouseMotion:
+		if selected_player and selected_player.is_dragging_handle:
+			selected_player.update_ray_length(mouse_pos)
+		
+		if dragging and selected_player:
+			_move_player_with_sliding(mouse_pos)
+	
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE:
+			if selected_player:
+				if selected_player.is_editing_ray:
+					selected_player.stop_editing()
+				selected_player.deselect()
+				selected_player = null
+			dragging = false
+			_block_camera_zoom(false)
+			if _context_menu and _context_menu.visible:
+				_context_menu.hide()
+		
+		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+			if selected_player:
+				_remove_player(selected_player)
+
+func _move_player_with_sliding(mouse_pos: Vector2) -> void:
+	if not selected_player or not selected_player.player:
+		return
+	
+	var new_screen_pos = mouse_pos - drag_offset
+	var player = selected_player.player
+	
+	if field_ref and field_ref.calibrated:
+		var target_metric = field_ref.screen_to_field(new_screen_pos)
+		
+		target_metric.x = clamp(target_metric.x, 0.0, Field.WIDTH)
+		target_metric.y = clamp(target_metric.y, 0.0, Field.HEIGHT)
+		
+		var collision = _resolve_collision(player.position_metric, target_metric)
+		if collision != null:
+			target_metric = collision
+		
+		player.position_metric = target_metric
+		new_screen_pos = field_ref.field_to_screen(target_metric)
+	else:
+		player.position_metric = new_screen_pos
+	
+	selected_player.position = new_screen_pos
+	selected_player.queue_redraw()
+
+func _resolve_collision(from_pos: Vector2, to_pos: Vector2) -> Vector2:
+	if not _check_bunker_collision(to_pos):
+		return to_pos
+	
+	var test_x = Vector2(to_pos.x, from_pos.y)
+	if not _check_bunker_collision(test_x):
+		return test_x
+	
+	var test_y = Vector2(from_pos.x, to_pos.y)
+	if not _check_bunker_collision(test_y):
+		return test_y
+	
+	return from_pos
+
+func _check_bunker_collision(player_pos: Vector2) -> bool:
+	if not editor_ref:
+		return false
+	
+	for child in editor_ref.get_children():
+		if child is Bunker:
+			var geometry = child.get_geometry()
+			if not geometry:
+				continue
+			
+			var bunker_pos = child.field_position
+			
+			var info = BunkerLibrary.get_info(child.bunker_type)
+			if info.is_empty():
+				continue
+			
+			var bunker_radius = 0.5
+			match info.get("shape", ""):
+				"circle":
+					bunker_radius = info.get("radius", 0.5)
+				"rect", "square", "wing", "plus", "snake":
+					var w = info.get("width", 1.0)
+					var h = info.get("height", 1.0)
+					bunker_radius = max(w, h) / 2.0
+				"triangle":
+					bunker_radius = info.get("size", 1.0) / 2.0
+				_:
+					bunker_radius = 0.5
+			
+			var dist = player_pos.distance_to(bunker_pos)
+			
+			if dist < bunker_radius + PLAYER_RADIUS:
+				return true
+	
+	return false
+
+func create_player(team: int, screen_pos: Vector2) -> void:
+	if not field_ref:
+		print("❌ Field reference not set!")
+		return
+	
+	if not editor_ref:
+		print("❌ Editor reference not set!")
+		return
+	
+	var player = Player.new()
+	player.id = next_id
+	next_id += 1
+	player.team = team
+	player.number = players.size() + 1
+	
+	if field_ref and field_ref.calibrated:
+		var metric_pos = field_ref.screen_to_field(screen_pos)
+		metric_pos.x = clamp(metric_pos.x, 0.0, Field.WIDTH)
+		metric_pos.y = clamp(metric_pos.y, 0.0, Field.HEIGHT)
+		
+		if _check_bunker_collision(metric_pos):
+			print("⚠️ Невозможно создать игрока: место занято бункером!")
+			return
+		
+		player.position_metric = metric_pos
+	else:
+		player.position_metric = screen_pos
+	
+	var visual = PlayerVisual.new()
+	visual.setup(player, field_ref, editor_ref)
+	add_child(visual)
+	players.append(visual)
+	
+	var team_name = "RED" if team == Player.Team.RED else "BLUE"
+	print("✅ Игрок %s (%s) создан на позиции: (%.2f, %.2f) м" % [player.number, team_name, player.position_metric.x, player.position_metric.y])
+
+func _get_player_at(pos: Vector2) -> PlayerVisual:
+	for visual in players:
+		if visual.position.distance_to(pos) < 20:
+			return visual
+	return null
+
+func _select_player(visual: PlayerVisual) -> void:
+	if selected_player and selected_player != visual:
+		if selected_player.is_editing_ray:
+			selected_player.stop_editing()
+		selected_player.deselect()
+	
+	selected_player = visual
+	visual.select()
+	print("✅ Выделен игрок: %s" % visual.player.number)
+	_block_camera_zoom(true)
+
+func _block_camera_zoom(blocked: bool) -> void:
+	var main = get_tree().current_scene
+	if main:
+		var camera = main.get_node_or_null("Camera2D")
+		if camera and camera.has_method("set_zoom_blocked"):
+			camera.set_zoom_blocked(blocked)
+
+func _remove_player(visual: PlayerVisual) -> void:
+	players.erase(visual)
+	if selected_player == visual:
+		selected_player = null
+	if _menu_visual == visual:
+		_menu_visual = null
+	visual.queue_free()
+	print("🗑️ Игрок удалён")
+
+func get_player_count() -> int:
+	return players.size()
+
+func get_team_count(team: int) -> int:
+	var count = 0
+	for visual in players:
+		if visual.player.team == team:
+			count += 1
+	return count
+
+func get_players() -> Array:
+	return players
+
+func clear_players() -> void:
+	for visual in players:
+		visual.queue_free()
+	players.clear()
+	selected_player = null
+	_menu_visual = null
+	next_id = 1
+	dragging = false
+	_block_camera_zoom(false)
+	if _context_menu and _context_menu.visible:
+		_context_menu.hide()

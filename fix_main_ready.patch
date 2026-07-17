@@ -1,0 +1,11 @@
+--- a/scenes/Main.gd
++++ b/scenes/Main.gd
+@@ -50,7 +50,6 @@
+ 	
+ 	_game_manager = GameManager.new()
+ 	add_child(_game_manager)
+ 	_game_manager.setup(_field_editor, _player_editor)
+-	_game_manager.state_changed.connect(_on_game_state_changed)
+-	_game_manager.memorize_tick.connect(_on_memorize_tick)
++	_game_manager.state_changed.connect(_on_game_state_changed)
+ 	_game_manager.game_over.connect(_on_game_over)

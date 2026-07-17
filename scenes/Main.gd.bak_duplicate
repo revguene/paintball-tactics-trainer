@@ -1,0 +1,1185 @@
+extends Node2D
+
+@onready var field_image: Sprite2D = $Field/FieldImage
+@onready var background: ColorRect = $UI/Background
+@onready var title: Label = $UI/Title
+@onready var subtitle: Label = $UI/Subtitle
+@onready var hint: Label = $UI/Hint
+
+var _document: Document = null
+var _field_editor: FieldEditor = null
+var _player_editor: PlayerEditor = null
+var _game_manager: GameManager = null
+var _game_engine: GameEngine = null
+var field := Field.new()
+var calibration_step := 0
+var corners := []
+var marker_nodes := []
+var calibration_active := false
+var current_image_path: String = ""
+
+var center_line: Line2D = null
+var is_dragging_center := false
+var drag_start_pos: Vector2 = Vector2.ZERO
+var drag_start_center: Vector2 = Vector2.ZERO
+var center_drag_enabled := false
+
+var editor_mode: int = EditorMode.Mode.FIELD_EDITOR
+var _load_dialog: FileDialog = null
+var _field_context_menu: FieldContextMenu = null
+var _start_button: Button = null
+var _end_turn_button: Button = null
+
+func _ready() -> void:
+	print("Paintball Tactical Editor v0.1.0")
+	print("Sprint 6 - Game Engine v1")
+	
+	_document = Document.new()
+	_document.name = "Untitled"
+	
+	_field_editor = $FieldEditor
+	if _field_editor:
+		print("✅ FieldEditor готов")
+	
+	_player_editor = $PlayerEditor
+	if _player_editor:
+		print("✅ PlayerEditor готов")
+		_player_editor.set_field_reference(field)
+		_player_editor.set_editor_reference(_field_editor)
+	
+	_game_manager = GameManager.new()
+	add_child(_game_manager)
+	_game_manager.setup(_field_editor, _player_editor)
+	_game_manager.state_changed.connect(_on_game_state_changed)
+	_game_manager.game_over.connect(_on_game_over)
+	
+	if _player_editor:
+		_player_editor.set_game_manager(_game_manager)
+	
+	_game_engine = GameEngine.new()
+	add_child(_game_engine)
+	_game_engine.setup(_player_editor, _field_editor, field)
+	_game_engine.phase_changed.connect(_on_game_phase_changed)
+	_game_engine.player_eliminated.connect(_on_player_eliminated)
+	_game_engine.breakout_complete.connect(_on_breakout_complete)
+	
+	if _player_editor:
+		_player_editor.set_game_engine(_game_engine)
+	
+	print("✅ GameManager и GameEngine подключены")
+	
+	_setup_load_dialog()
+	_setup_field_context_menu()
+	_create_start_button()
+	_create_end_turn_button()
+	
+	var ui = $UI
+	if ui:
+		var main_menu = ui.get_node("MainMenu")
+		if main_menu:
+			main_menu.edit_field.connect(_on_edit_field_signal)
+			main_menu.save_project.connect(_on_save_project)
+			main_menu.load_project.connect(_on_load_project)
+			main_menu.game_mode.connect(_on_game_mode)
+			print("✅ MainMenu подключён")
+	
+	if hint:
+		hint.add_theme_font_size_override("font_size", 42)
+		hint.text = "Нажмите «Edit Field» чтобы загрузить изображение поля"
+		calibration_active = false
+		center_drag_enabled = false
+		hint.visible = false
+
+func _create_start_button() -> void:
+	_start_button = Button.new()
+	_start_button.text = "▶️ СТАРТ ИГРЫ"
+	_start_button.size = Vector2(300, 80)
+	_start_button.add_theme_font_size_override("font_size", 32)
+	_start_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+	_start_button.pressed.connect(_on_start_button_pressed)
+	_start_button.visible = false
+	call_deferred("_center_start_button")
+	add_child(_start_button)
+
+func _create_end_turn_button() -> void:
+	_end_turn_button = Button.new()
+	_end_turn_button.text = "✅ ГОТОВО"
+	_end_turn_button.size = Vector2(200, 60)
+	_end_turn_button.add_theme_font_size_override("font_size", 28)
+	_end_turn_button.modulate = Color(0.8, 0.8, 0.2, 1.0)
+	_end_turn_button.pressed.connect(_on_end_turn_pressed)
+	_end_turn_button.visible = false
+	call_deferred("_center_end_turn_button")
+	add_child(_end_turn_button)
+
+func _center_start_button() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	_start_button.position = Vector2(
+		viewport_size.x / 2 - 150,
+		viewport_size.y / 2 - 40
+	)
+
+func _center_end_turn_button() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	_end_turn_button.position = Vector2(
+		viewport_size.x / 2 - 100,
+		viewport_size.y - 80
+	)
+
+func _on_start_button_pressed() -> void:
+	print("▶️ Нажата кнопка СТАРТ!")
+	_start_button.visible = false
+	_start_game()
+
+func _on_end_turn_pressed() -> void:
+	print("✅ Ход игрока завершен! Фиксируем разбежку...")
+	_end_turn_button.visible = false
+	
+	if _game_engine:
+		_game_engine.start_game()
+
+func _setup_load_dialog() -> void:
+	_load_dialog = FileDialog.new()
+	_load_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_load_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_load_dialog.title = "Выберите файл поля (.ptf)"
+	_load_dialog.add_filter("*.ptf", "Paintball Tactical File")
+	add_child(_load_dialog)
+	_load_dialog.file_selected.connect(_on_game_field_selected)
+	_load_dialog.canceled.connect(_on_game_field_canceled)
+
+func _setup_field_context_menu() -> void:
+	_field_context_menu = FieldContextMenu.new()
+	_field_context_menu.option_selected.connect(_on_field_context_menu_selected)
+	add_child(_field_context_menu)
+
+func _on_game_field_selected(path: String) -> void:
+	print("📂 Загрузка поля для игры: %s" % path)
+	_load_game_field(path)
+
+func _on_game_field_canceled() -> void:
+	print("❌ Выбор поля отменен")
+	enter_tactical_editor()
+
+func _load_game_field(path: String) -> void:
+	print("📂 Загрузка поля для игры: %s" % path)
+	
+	var loaded = ProjectSerializer.load_document(path)
+	if not loaded:
+		print("❌ Ошибка загрузки документа: %s" % path)
+		return
+	
+	_document = loaded
+	
+	if _document.has_image_data():
+		print("   Восстановление изображения из base64...")
+		var image_bytes = Marshalls.base64_to_raw(_document.image_data)
+		var image = Image.new()
+		var err = image.load_png_from_buffer(image_bytes)
+		if err == OK:
+			var texture = ImageTexture.create_from_image(image)
+			field_image.texture = texture
+			field_image.centered = true
+			field_image.visible = true
+			field_image.show()
+			field_image.modulate = Color.WHITE
+			_fit_image_to_view()
+			print("✅ Изображение восстановлено из base64")
+		else:
+			print("❌ Ошибка восстановления изображения: %s" % err)
+	
+	if _document.calibrated:
+		field.set_corners(
+			_document.top_left,
+			_document.top_right,
+			_document.bottom_right,
+			_document.bottom_left
+		)
+		field.set_center(_document.center_pixel)
+		print("✅ Калибровка восстановлена")
+		_draw_center_line()
+	
+	_clear_bunkers()
+	
+	for data in _document.bunkers:
+		var metric_pos = Vector2(data["x"], data["y"])
+		var screen_pos = field.field_to_screen(metric_pos)
+		
+		var bunker = Bunker.new()
+		bunker.position = screen_pos
+		bunker.field_position = metric_pos
+		bunker.id = data.get("id", 0)
+		bunker.mirror_id = data.get("mirror_id", -1)
+		
+		var type_str = data.get("type_name", "Giant Block")
+		var found_type = BunkerType.Type.GIANT_BLOCK
+		for t in BunkerType.get_all_types():
+			if BunkerType.get_display_name(t) == type_str:
+				found_type = t
+				break
+		bunker.bunker_type = found_type
+		
+		bunker.is_mirror = data.get("is_mirror", false)
+		bunker.rotation = data.get("rotation", 0.0)
+		
+		_field_editor.add_child(bunker)
+		bunker.queue_redraw()
+	
+	print("✅ Бункеры загружены")
+	
+	if _player_editor:
+		_player_editor.clear_players()
+		print("✅ Игроки очищены")
+	
+	enter_game_mode_only()
+
+func _on_field_context_menu_selected(option: String) -> void:
+	match option:
+		"spawn_red":
+			_spawn_team_5(Player.Team.RED, "left")
+		"spawn_blue":
+			_spawn_team_5(Player.Team.BLUE, "right")
+		"spawn_both":
+			_spawn_both_teams()
+		"switch_sides":
+			_switch_sides()
+		"clear_all":
+			_clear_all_players()
+		"toggle_red_rays":
+			_toggle_team_rays(Player.Team.RED)
+		"toggle_blue_rays":
+			_toggle_team_rays(Player.Team.BLUE)
+		"toggle_all_rays":
+			_toggle_all_rays()
+
+func _spawn_team_5(team: int, side: String) -> void:
+	if not field.calibrated:
+		print("⚠️ Поле не откалибровано!")
+		return
+	
+	if not _player_editor:
+		print("❌ _player_editor = null!")
+		return
+	
+	_clear_team(team)
+	
+	var team_name = "RED" if team == Player.Team.RED else "BLUE"
+	print("🚀 Создание команды %s (5 игроков)..." % team_name)
+	
+	var y_positions = [18.0, 18.75, 19.0, 17.25, 16.50]
+	var x_pos = 1.0 if side == "left" else 44.0
+	var rotation = 0.1 if side == "left" else PI - 0.1
+	
+	for i in range(5):
+		var pos = Vector2(x_pos, y_positions[i])
+		var screen_pos = field.field_to_screen(pos)
+		
+		var player = Player.new()
+		player.id = _player_editor.players.size() + 1
+		player.number = i + 1
+		player.team = team
+		player.position_metric = pos
+		player.rotation = rotation
+		player.ray_origin = Player.RayOrigin.CENTER
+		player.status = Player.Status.ACTIVE
+		
+		var visual = PlayerVisual.new()
+		visual.setup(player, field, _field_editor)
+		_player_editor.add_child(visual)
+		_player_editor.players.append(visual)
+		print("   %s игрок %d: (%.2f, %.2f) м" % [team_name, i+1, pos.x, pos.y])
+	
+	print("✅ Команда %s создана!" % team_name)
+	
+	if _start_button:
+		_start_button.visible = true
+		_start_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+		_center_start_button()
+		print("✅ Кнопка СТАРТ показана")
+	
+	if hint:
+		hint.text = "✅ Команда %s создана! Нажмите СТАРТ" % team_name
+
+func _spawn_both_teams() -> void:
+	_spawn_team_5(Player.Team.RED, "left")
+	_spawn_team_5(Player.Team.BLUE, "right")
+
+func _clear_team(team: int) -> void:
+	if not _player_editor:
+		return
+	
+	var to_remove = []
+	for visual in _player_editor.players:
+		if visual.player and visual.player.team == team:
+			to_remove.append(visual)
+	
+	for visual in to_remove:
+		_player_editor.players.erase(visual)
+		visual.queue_free()
+	
+	var team_name = "RED" if team == Player.Team.RED else "BLUE"
+	print("🗑️ Команда %s удалена" % team_name)
+
+func _clear_all_players() -> void:
+	if _player_editor:
+		_player_editor.clear_players()
+		print("🗑️ Все игроки удалены")
+		if _start_button:
+			_start_button.visible = false
+		if hint:
+			hint.text = "Все игроки удалены"
+
+func _toggle_team_rays(team: int) -> void:
+	if not _player_editor:
+		return
+	
+	var team_name = "RED" if team == Player.Team.RED else "BLUE"
+	var enabled_count = 0
+	var disabled_count = 0
+	
+	for visual in _player_editor.players:
+		if visual.player and visual.player.team == team:
+			if visual.is_handle_extended():
+				visual.disable_ray()
+				disabled_count += 1
+			else:
+				visual.enable_ray()
+				enabled_count += 1
+	
+	print("🔦 %s: включено %d, выключено %d" % [team_name, enabled_count, disabled_count])
+	
+	if hint:
+		hint.text = "🔦 %s: включено %d, выключено %d" % [team_name, enabled_count, disabled_count]
+
+func _toggle_all_rays() -> void:
+	if not _player_editor:
+		return
+	
+	var enabled_count = 0
+	var disabled_count = 0
+	
+	for visual in _player_editor.players:
+		if visual.is_handle_extended():
+			visual.disable_ray()
+			disabled_count += 1
+		else:
+			visual.enable_ray()
+			enabled_count += 1
+	
+	print("🔦 Все лучи: включено %d, выключено %d" % [enabled_count, disabled_count])
+	
+	if hint:
+		hint.text = "🔦 Все лучи: включено %d, выключено %d" % [enabled_count, disabled_count]
+
+func _switch_sides() -> void:
+	if not field.calibrated:
+		print("⚠️ Поле не откалибровано!")
+		return
+	
+	if not _player_editor:
+		return
+	
+	var center_x = Field.WIDTH / 2.0
+	
+	for visual in _player_editor.players:
+		if visual.player and visual.player.status == Player.Status.ACTIVE:
+			var pos = visual.player.position_metric
+			var new_x = center_x - (pos.x - center_x)
+			pos.x = clamp(new_x, 0.0, Field.WIDTH)
+			visual.player.position_metric = pos
+			visual.player.rotation += PI
+			var screen_pos = field.field_to_screen(pos)
+			visual.position = screen_pos
+			visual.queue_redraw()
+	
+	print("🔄 Команды поменялись сторонами!")
+
+func _start_game() -> void:
+	if not _player_editor or _player_editor.players.size() == 0:
+		print("⚠️ Нет игроков на поле! Сначала расставьте команды.")
+		return
+	
+	print("▶️ Запуск игры!")
+	enter_game()
+
+func enter_field_editor() -> void:
+	editor_mode = EditorMode.Mode.FIELD_EDITOR
+	print("🔧 Режим: FIELD EDITOR")
+	if _field_editor:
+		_field_editor.visible = true
+	if _player_editor:
+		_player_editor.visible = false
+	if _start_button:
+		_start_button.visible = false
+	if _end_turn_button:
+		_end_turn_button.visible = false
+	if hint:
+		hint.visible = false
+	if background:
+		background.visible = true
+	if title:
+		title.visible = true
+	if subtitle:
+		subtitle.visible = true
+	if _field_editor:
+		_field_editor.z_index = 0
+
+func enter_tactical_editor() -> void:
+	editor_mode = EditorMode.Mode.TACTICAL_EDITOR
+	print("🎯 Режим: TACTICAL EDITOR")
+	if _field_editor:
+		_field_editor.visible = true
+	if _player_editor:
+		_player_editor.visible = true
+	if _start_button:
+		_start_button.visible = false
+	if _end_turn_button:
+		_end_turn_button.visible = false
+	if hint:
+		hint.visible = false
+	if background:
+		background.visible = true
+	if title:
+		title.visible = true
+	if subtitle:
+		subtitle.visible = true
+	if _field_editor:
+		_field_editor.z_index = 0
+
+func enter_game_mode_only() -> void:
+	editor_mode = EditorMode.Mode.GAME
+	print("🎮 Режим: GAME (ожидание старта)")
+	
+	if _field_editor:
+		_field_editor.visible = true
+		_field_editor.z_index = 10
+	if _player_editor:
+		_player_editor.visible = true
+		_player_editor.z_index = 20
+	
+	if background:
+		background.visible = false
+	if title:
+		title.visible = false
+	if subtitle:
+		subtitle.visible = false
+	
+	field_image.visible = true
+	field_image.show()
+	field_image.modulate = Color.WHITE
+	field_image.z_index = 0
+	
+	if _start_button:
+		_start_button.visible = false
+	if _end_turn_button:
+		_end_turn_button.visible = false
+	
+	if hint:
+		hint.visible = true
+		hint.z_index = 30
+		hint.text = "Нажмите 4 → Меню команд"
+
+func enter_game() -> void:
+	editor_mode = EditorMode.Mode.GAME
+	print("🎮 Режим: GAME - ручная разбежка!")
+	
+	if _field_editor:
+		_field_editor.visible = true
+		_field_editor.z_index = 10
+	if _player_editor:
+		_player_editor.visible = true
+		_player_editor.z_index = 20
+	
+	if background:
+		background.visible = false
+	if title:
+		title.visible = false
+	if subtitle:
+		subtitle.visible = false
+	
+	field_image.visible = true
+	field_image.show()
+	field_image.modulate = Color.WHITE
+	field_image.z_index = 0
+	
+	if _start_button:
+		_start_button.visible = false
+	if _end_turn_button:
+		_end_turn_button.visible = true
+		_end_turn_button.modulate = Color(0.8, 0.8, 0.2, 1.0)
+		_center_end_turn_button()
+		print("✅ Кнопка ГОТОВО показана")
+	
+	if hint:
+		hint.visible = true
+		hint.z_index = 30
+		hint.text = "🏃 Разбежка! Расставьте игроков вручную, затем нажмите «Готово»"
+	
+	print("✅ Игроки готовы к ручной разбежке")
+
+func is_field_editor() -> bool:
+	return editor_mode == EditorMode.Mode.FIELD_EDITOR
+
+func is_tactical_editor() -> bool:
+	return editor_mode == EditorMode.Mode.TACTICAL_EDITOR
+
+func is_game() -> bool:
+	return editor_mode == EditorMode.Mode.GAME
+
+func _on_edit_field_signal() -> void:
+	enter_field_editor()
+
+func _on_save_project(path: String) -> void:
+	print("📥 Получен путь для сохранения: %s" % path)
+	save_document(path)
+
+func _on_load_project(path: String) -> void:
+	enter_tactical_editor()
+	load_document(path)
+
+func _on_game_mode() -> void:
+	print("🎮 Запуск игрового режима...")
+	_load_dialog.popup_centered()
+
+func _on_game_state_changed(new_state: int) -> void:
+	var state_names = ["EDITOR", "PLAYER_TURN", "AI_TURN", "MEMORIZE", "GAME_OVER"]
+	var state_name = state_names[new_state] if new_state < state_names.size() else "UNKNOWN"
+	print("📊 Состояние игры: %s" % state_name)
+	
+	if hint and new_state == GameManager.GameState.PLAYER_TURN:
+		hint.text = "🎯 Ваш ход! Двигайте игроков"
+
+	pass
+
+func _on_game_over(message: String) -> void:
+	print("🏁 %s" % message)
+	if hint:
+		hint.text = "🏁 %s" % message
+
+func _on_game_phase_changed(new_phase: int) -> void:
+	var phase_name = ["BREAKOUT", "BREAKOUT_CHECK", "PLAYER_TURN", "AI_TURN", "GAME_OVER"]
+	var name = phase_name[new_phase] if new_phase < phase_name.size() else "UNKNOWN"
+	print("📊 Фаза игры: %s" % name)
+	
+	if hint:
+		match new_phase:
+			0:
+				hint.text = "🏃 Разбежка! Расставляйте игроков"
+			1:
+				hint.text = "🔫 Проверка разбежки..."
+			2:
+				hint.text = "🎯 Ваш ход! Двигайте игроков"
+			3:
+				hint.text = "🤖 Ход компьютера..."
+			4:
+				hint.text = "🏁 Игра окончена!"
+
+func _on_player_eliminated(visual: PlayerVisual) -> void:
+	if visual.player:
+		var team = "RED" if visual.player.team == Player.Team.RED else "BLUE"
+		print("💀 Игрок %d (%s) поражен!" % [visual.player.number, team])
+
+func _on_breakout_complete() -> void:
+	print("✅ Разбежка завершена! Начинается пошаговая игра")
+	if hint:
+		hint.text = "✅ Разбежка завершена! Начинается пошаговая игра"
+
+func load_field(path: String) -> void:
+	if not is_field_editor():
+		print("⚠️ Редактирование поля доступно только в FIELD_EDITOR режиме")
+		return
+	
+	var texture := ImageLoader.load_texture(path)
+	
+	if texture == null:
+		print("❌ Не удалось загрузить изображение: %s" % path)
+		return
+	
+	current_image_path = path
+	_clear_bunkers()
+	_remove_center_line()
+	
+	background.visible = false
+	title.visible = false
+	subtitle.visible = false
+	
+	field_image.texture = texture
+	field_image.centered = true
+	_document.image_path = path
+	_fit_image_to_view()
+	
+	_calibration_reset()
+	calibration_active = true
+	center_drag_enabled = false
+	
+	if hint:
+		hint.text = "КАЛИБРОВКА (5 точек):\n1. Левый верхний → 2. Правый верхний → 3. Правый нижний → 4. Левый нижний → 5. Центр поля"
+		hint.visible = true
+		hint.z_index = 30
+	
+	print("✅ Изображение загружено: %s" % path)
+
+func _remove_center_line() -> void:
+	if center_line:
+		center_line.queue_free()
+		center_line = null
+
+func _draw_center_line() -> void:
+	_remove_center_line()
+	
+	if not field.calibrated:
+		return
+	
+	var center_px = field.get_center_pixel()
+	var top_y = field.top_left.y
+	var bottom_y = field.bottom_left.y
+	
+	center_line = Line2D.new()
+	center_line.add_point(Vector2(center_px.x, top_y))
+	center_line.add_point(Vector2(center_px.x, bottom_y))
+	center_line.width = 1.5
+	center_line.default_color = Color(1.0, 0.0, 0.0, 0.6)
+	add_child(center_line)
+	print("✅ Центральная линия нарисована: X=%.1f" % center_px.x)
+	
+	center_drag_enabled = true
+
+func _clear_bunkers() -> void:
+	if _field_editor:
+		for child in _field_editor.get_children():
+			if child is Bunker:
+				child.queue_free()
+
+func _fit_image_to_view() -> void:
+	if field_image.texture == null:
+		return
+	
+	var viewport_size = get_viewport().get_visible_rect().size
+	var image_size = Vector2(
+		field_image.texture.get_width(),
+		field_image.texture.get_height()
+	)
+	
+	if image_size == Vector2.ZERO:
+		return
+	
+	var scale_x = viewport_size.x / image_size.x
+	var scale_y = viewport_size.y / image_size.y
+	var fit_scale = min(scale_x, scale_y) * 0.85
+	
+	field_image.scale = Vector2(fit_scale, fit_scale)
+	field_image.position = viewport_size / 2
+	
+	var camera = $Camera2D
+	if camera:
+		camera.position = viewport_size / 2
+		camera.zoom = Vector2(1, 1)
+		print("✅ Камера установлена: position=%s, zoom=%s" % [camera.position, camera.zoom])
+
+func save_document(path: String) -> void:
+	print("💾 Сохранение документа: %s" % path)
+	print("========================")
+	
+	if not _field_editor:
+		print("❌ FieldEditor не найден")
+		return
+	
+	var bunkers_data = []
+	for child in _field_editor.get_children():
+		if child is Bunker:
+			var field_pos = child.field_position
+			if field_pos == Vector2.ZERO and field.calibrated:
+				field_pos = field.screen_to_field(child.position)
+			
+			bunkers_data.append({
+				"id": child.id,
+				"mirror_id": child.mirror_id,
+				"type": child.bunker_type,
+				"type_name": BunkerType.get_display_name(child.bunker_type),
+				"x": field_pos.x,
+				"y": field_pos.y,
+				"rotation": child.rotation,
+				"is_mirror": child.is_mirror,
+				"visible": true
+			})
+	
+	print("   Собрано укрытий (метры): %s" % bunkers_data.size())
+	
+	var players_data = []
+	if _player_editor:
+		for visual in _player_editor.players:
+			if visual and visual.player:
+				var player = visual.player
+				
+				var status_str = "ACTIVE" if player.status == Player.Status.ACTIVE else "ELIMINATED"
+				
+				var side_str = "CENTER"
+				match player.ray_origin:
+					Player.RayOrigin.LEFT:
+						side_str = "LEFT"
+					Player.RayOrigin.RIGHT:
+						side_str = "RIGHT"
+					_:
+						side_str = "CENTER"
+				
+				players_data.append({
+					"id": player.id,
+					"number": player.number,
+					"team": "RED" if player.team == Player.Team.RED else "BLUE",
+					"x": player.position_metric.x,
+					"y": player.position_metric.y,
+					"angle": player.get_rotation_degrees(),
+					"ray_enabled": visual.show_ray,
+					"ray_length": visual.ray_length_metric,
+					"status": status_str,
+					"side": side_str
+				})
+	
+	print("   Собрано игроков: %s" % players_data.size())
+	
+	_document.clear_bunkers()
+	for data in bunkers_data:
+		_document.add_bunker(data)
+	
+	_document.players = players_data
+	
+	if field.calibrated:
+		_document.set_corners(field.top_left, field.top_right, field.bottom_right, field.bottom_left)
+		_document.set_center(field.center_pixel)
+		print("   Калибровка сохранена")
+	
+	_document.image_path = current_image_path
+	if field_image.texture:
+		var image = field_image.texture.get_image()
+		if image:
+			var png_data = image.save_png_to_buffer()
+			_document.image_data = Marshalls.raw_to_base64(png_data)
+			print("   Изображение сохранено: %s байт" % png_data.size())
+	
+	print("   Сохраняем на диск...")
+	var err = ProjectSerializer.save_document(_document, path)
+	
+	if err == OK:
+		print("✅ Документ сохранён: %s" % path)
+		if FileAccess.file_exists(path):
+			print("✅ Файл существует: %s" % path)
+		else:
+			print("❌ Файл НЕ существует: %s" % path)
+	else:
+		print("❌ Ошибка сохранения: %s" % err)
+
+func load_document(path: String) -> void:
+	print("📂 Загрузка документа: %s" % path)
+	
+	background.visible = false
+	title.visible = false
+	subtitle.visible = false
+	if hint:
+		hint.visible = false
+	
+	var loaded = ProjectSerializer.load_document(path)
+	if not loaded:
+		print("❌ Ошибка загрузки документа: %s" % path)
+		return
+	
+	_document = loaded
+	
+	if _document.has_image_data():
+		print("   Восстановление изображения из base64...")
+		var image_bytes = Marshalls.base64_to_raw(_document.image_data)
+		var image = Image.new()
+		var err = image.load_png_from_buffer(image_bytes)
+		if err == OK:
+			var texture = ImageTexture.create_from_image(image)
+			field_image.texture = texture
+			field_image.centered = true
+			field_image.visible = true
+			_fit_image_to_view()
+			print("✅ Изображение восстановлено из base64")
+		else:
+			print("❌ Ошибка восстановления изображения: %s" % err)
+	
+	if _document.calibrated:
+		field.set_corners(
+			_document.top_left,
+			_document.top_right,
+			_document.bottom_right,
+			_document.bottom_left
+		)
+		field.set_center(_document.center_pixel)
+		print("✅ Калибровка восстановлена")
+		_draw_center_line()
+	
+	_clear_bunkers()
+	
+	var restored_count = 0
+	for data in _document.bunkers:
+		var metric_pos = Vector2(data["x"], data["y"])
+		var screen_pos = field.field_to_screen(metric_pos)
+		
+		var bunker = Bunker.new()
+		bunker.position = screen_pos
+		bunker.field_position = metric_pos
+		bunker.id = data.get("id", restored_count + 1)
+		bunker.mirror_id = data.get("mirror_id", -1)
+		
+		var type_str = data.get("type_name", "Giant Block")
+		var found_type = BunkerType.Type.GIANT_BLOCK
+		for t in BunkerType.get_all_types():
+			if BunkerType.get_display_name(t) == type_str:
+				found_type = t
+				break
+		bunker.bunker_type = found_type
+		
+		bunker.is_mirror = data.get("is_mirror", false)
+		bunker.rotation = data.get("rotation", 0.0)
+		
+		_field_editor.add_child(bunker)
+		bunker.queue_redraw()
+		restored_count += 1
+		print("   ✅ Восстановлен бункер %d: метры(%.2f, %.2f) -> пиксели(%.1f, %.1f)" % [bunker.id, metric_pos.x, metric_pos.y, screen_pos.x, screen_pos.y])
+	
+	print("✅ Восстановлено укрытий: %s" % restored_count)
+	
+	if _player_editor:
+		_player_editor.clear_players()
+		
+		var restored_players = 0
+		for data in _document.players:
+			var player = Player.new()
+			player.id = data.get("id", restored_players + 1)
+			player.number = data.get("number", restored_players + 1)
+			player.team = Player.Team.RED if data.get("team", "RED") == "RED" else Player.Team.BLUE
+			player.position_metric = Vector2(data.get("x", 0.0), data.get("y", 0.0))
+			player.set_rotation_degrees(data.get("angle", 0.0))
+			player.status = Player.Status.ACTIVE if data.get("status", "ACTIVE") == "ACTIVE" else Player.Status.ELIMINATED
+			
+			var side = data.get("side", "CENTER")
+			match side:
+				"LEFT":
+					player.ray_origin = Player.RayOrigin.LEFT
+				"RIGHT":
+					player.ray_origin = Player.RayOrigin.RIGHT
+				_:
+					player.ray_origin = Player.RayOrigin.CENTER
+			
+			var visual = PlayerVisual.new()
+			visual.setup(player, field, _field_editor)
+			
+			var ray_enabled = data.get("ray_enabled", false)
+			if ray_enabled:
+				visual.enable_ray()
+			visual.ray_length_metric = data.get("ray_length", 45.0)
+			
+			_player_editor.add_child(visual)
+			_player_editor.players.append(visual)
+			restored_players += 1
+			print("   ✅ Восстановлен игрок %d: (%.2f, %.2f) м, угол %.1f°, луч: %s" % [
+				player.number, 
+				player.position_metric.x, 
+				player.position_metric.y,
+				player.get_rotation_degrees(),
+				"включен" if ray_enabled else "выключен"
+			])
+		
+		print("✅ Восстановлено игроков: %s" % restored_players)
+	
+	print("✅ Документ загружен: %s" % path)
+
+func _input(event: InputEvent) -> void:
+	var mouse_pos = get_global_mouse_position()
+	
+	if calibration_active:
+		if is_field_editor() and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_add_point(mouse_pos)
+			get_viewport().set_input_as_handled()
+		return
+	
+	if event is InputEventKey and event.pressed and event.keycode == KEY_4:
+		if is_game() or is_tactical_editor():
+			var menu_pos = get_viewport().get_visible_rect().size / 2
+			_field_context_menu.show_menu(menu_pos)
+			get_viewport().set_input_as_handled()
+			print("📋 Открыто меню команд (клавиша 4)")
+			return
+	
+	_handle_center_drag(event)
+
+func _add_point(pos: Vector2) -> void:
+	if not is_field_editor():
+		return
+	
+	calibration_step += 1
+	
+	var marker = ColorRect.new()
+	marker.size = Vector2(8, 8)
+	marker.position = pos - Vector2(4, 4)
+	
+	if calibration_step <= 4:
+		marker.color = Color(0.1, 0.1, 0.5, 1)
+		corners.append(pos)
+		add_child(marker)
+		marker_nodes.append(marker)
+		
+		print("📍 Угол %d: %s" % [calibration_step, pos])
+		
+		if hint:
+			match calibration_step:
+				1:
+					hint.text = "✅ Левый верхний.\nТеперь кликните по ПРАВОМУ ВЕРХНЕМУ углу"
+				2:
+					hint.text = "✅ Правый верхний.\nТеперь кликните по ПРАВОМУ НИЖНЕМУ углу"
+				3:
+					hint.text = "✅ Правый нижний.\nТеперь кликните по ЛЕВОМУ НИЖНЕМУ углу"
+				4:
+					hint.text = "✅ Левый нижний.\nТеперь кликните по ЦЕНТРУ ПОЛЯ"
+	else:
+		_finish_calibration(pos)
+
+func _finish_calibration(center: Vector2) -> void:
+	if not is_field_editor():
+		return
+	
+	field.set_corners(corners[0], corners[1], corners[2], corners[3])
+	field.set_center(center)
+	
+	_draw_center_line()
+	
+	print("✅ КАЛИБРОВКА ЗАВЕРШЕНА!")
+	print("   Центр поля (пиксели): %s" % center)
+	
+	for marker in marker_nodes:
+		marker.queue_free()
+	marker_nodes.clear()
+	
+	if hint:
+		hint.text = ""
+		hint.visible = false
+	
+	calibration_active = false
+
+func _calibration_reset() -> void:
+	calibration_step = 0
+	corners = []
+	field.calibrated = false
+	calibration_active = false
+	_remove_center_line()
+	center_drag_enabled = false
+	
+	for marker in marker_nodes:
+		marker.queue_free()
+	marker_nodes.clear()
+	
+	if hint:
+		hint.visible = true
+		hint.text = "Нажмите «Edit Field» чтобы загрузить изображение поля"
+
+func _handle_center_drag(event: InputEvent) -> void:
+	if not field.calibrated:
+		return
+	
+	if not center_drag_enabled:
+		return
+	
+	if not is_field_editor():
+		return
+	
+	if not center_line:
+		return
+	
+	var mouse_pos = get_global_mouse_position()
+	var center_px = field.get_center_pixel()
+	
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			var dist = abs(mouse_pos.x - center_px.x)
+			if dist < 20:
+				is_dragging_center = true
+				drag_start_pos = mouse_pos
+				drag_start_center = center_px
+				print("🔴 Перетаскивание центра начато")
+			else:
+				is_dragging_center = false
+		else:
+			if is_dragging_center:
+				is_dragging_center = false
+				print("🔴 Перетаскивание центра завершено")
+	
+	if event is InputEventMouseMotion and is_dragging_center:
+		var delta_x = mouse_pos.x - drag_start_pos.x
+		var new_center_x = drag_start_center.x + delta_x
+		
+		var min_x = field.top_left.x + 20
+		var max_x = field.top_right.x - 20
+		new_center_x = clamp(new_center_x, min_x, max_x)
+		
+		var new_center = Vector2(new_center_x, field.get_center_pixel().y)
+		field.center_pixel = new_center
+		
+		_draw_center_line()
+		
+		print("📍 Центр перемещён: X=%.1f" % new_center_x)
+
+func get_field() -> Field:
+	return field
+
+func is_calibrated() -> bool:
+	return field.calibrated
+
+func _process(delta: float) -> void:
+	pass
+
+func _create_end_turn_button() -> void:
+	_end_turn_button = Button.new()
+	_end_turn_button.text = "⏭️ ЗАВЕРШИТЬ ХОД"
+	_end_turn_button.size = Vector2(220, 60)
+	_end_turn_button.add_theme_font_size_override("font_size", 24)
+	_end_turn_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+	_end_turn_button.pressed.connect(_on_end_turn_pressed)
+	_end_turn_button.visible = false
+	call_deferred("_center_end_turn_button")
+	add_child(_end_turn_button)
+
+func _center_end_turn_button() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	_end_turn_button.position = Vector2(
+		viewport_size.x / 2 - 110,
+		viewport_size.y - 80
+	)
+
+func _on_end_turn_pressed() -> void:
+	print("⏭️ Игрок нажал 'Завершить ход'!")
+	if _game_engine:
+		_game_engine.finish_player_turn()
+		_end_turn_button.visible = false
+
+func _on_game_phase_changed(phase: int) -> void:
+	print("📊 Фаза игры изменена: ", _phase_name(phase))
+	
+	# Обновляем видимость кнопки
+	if _end_turn_button:
+		if phase == GameEngine.GamePhase.PLAYER_TURN:
+			_end_turn_button.visible = true
+			_end_turn_button.text = "⏭️ ЗАВЕРШИТЬ ХОД"
+		else:
+			_end_turn_button.visible = false
+
+func _phase_name(phase: int) -> String:
+	match phase:
+		GameEngine.GamePhase.BREAKOUT: return "BREAKOUT"
+		GameEngine.GamePhase.PLAYER_TURN: return "PLAYER_TURN"
+		GameEngine.GamePhase.AI_TURN: return "AI_TURN"
+		GameEngine.GamePhase.POST_TURN: return "POST_TURN"
+		GameEngine.GamePhase.GAME_OVER: return "GAME_OVER"
+		_: return "UNKNOWN"
+
+func _on_start_button_pressed() -> void:
+	print("▶️ Нажата кнопка СТАРТ!")
+	_start_button.visible = false
+	
+	if _game_engine:
+		_game_engine.start_game()
+	else:
+		print("❌ GameEngine не инициализирован!")
+
+func _on_end_turn_pressed() -> void:
+	print("⏭️ Игрок нажал 'Завершить ход'!")
+	_end_turn_button.visible = false
+	
+	if _game_engine:
+		# Проверяем фазу
+		var phase = _game_engine.get_phase()
+		
+		if phase == GameEngine.GamePhase.BREAKOUT:
+			# Завершаем разбежку
+			_game_engine.start_game()
+		elif phase == GameEngine.GamePhase.PLAYER_TURN:
+			# Завершаем ход игрока
+			_game_engine.finish_player_turn()
+		else:
+			print("⚠️ Неправильная фаза для завершения хода!")
+	else:
+		print("❌ GameEngine не найден!")
+
+# Обновляем функцию _on_game_phase_changed
+func _on_game_phase_changed(phase: int) -> void:
+	print("📊 Фаза игры изменена: ", _phase_name(phase))
+	
+	if _end_turn_button:
+		match phase:
+			GameEngine.GamePhase.BREAKOUT:
+				_end_turn_button.visible = true
+				_end_turn_button.text = "🏃 ГОТОВО (разбежка)"
+				_end_turn_button.modulate = Color(0.8, 0.8, 0.2, 1.0)
+				if hint:
+					hint.text = "🏃 Разбежка! AI занимает укрытия..."
+			
+			GameEngine.GamePhase.PLAYER_TURN:
+				_end_turn_button.visible = true
+				_end_turn_button.text = "⏭️ ЗАВЕРШИТЬ ХОД"
+				_end_turn_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+				if hint:
+					hint.text = "🎯 Ваш ход! Двигайте игроков"
+			
+			GameEngine.GamePhase.AI_TURN:
+				_end_turn_button.visible = false
+				if hint:
+					hint.text = "🤖 Ход компьютера..."
+			
+			GameEngine.GamePhase.GAME_OVER:
+				_end_turn_button.visible = false
+				if hint:
+					hint.text = "🏁 Игра окончена!"
+			
+			_:
+				_end_turn_button.visible = false
+
+# ===== УПРАВЛЕНИЕ ИГРОЙ =====
+
+func _on_end_turn_pressed() -> void:
+	print("⏭️ Игрок нажал 'Завершить ход'!")
+	_end_turn_button.visible = false
+	
+	if _game_engine:
+		_game_engine.finish_player_turn()
+	else:
+		print("❌ GameEngine не найден!")
+
+func _on_game_phase_changed(phase: int) -> void:
+	print("📊 Фаза игры: ", _phase_name(phase))
+	
+	match phase:
+		GameEngine.GamePhase.PLAYER_TURN:
+			if _end_turn_button:
+				_end_turn_button.visible = true
+				_end_turn_button.text = "⏭️ ЗАВЕРШИТЬ ХОД"
+				_end_turn_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+			if hint:
+				hint.text = "🎯 Ваш ход! Двигайте игроков"
+		
+		GameEngine.GamePhase.AI_TURN:
+			if _end_turn_button:
+				_end_turn_button.visible = false
+			if hint:
+				hint.text = "🤖 Ход компьютера..."
+		
+		GameEngine.GamePhase.BREAKOUT:
+			if _end_turn_button:
+				_end_turn_button.visible = false
+			if hint:
+				hint.text = "🏃 Разбежка!"
+		
+		GameEngine.GamePhase.GAME_OVER:
+			if _end_turn_button:
+				_end_turn_button.visible = false
+			if hint:
+				hint.text = "🏁 Игра окончена!"
+
+func _phase_name(phase: int) -> String:
+	match phase:
+		GameEngine.GamePhase.BREAKOUT: return "BREAKOUT"
+		GameEngine.GamePhase.PLAYER_TURN: return "PLAYER_TURN"
+		GameEngine.GamePhase.AI_TURN: return "AI_TURN"
+		GameEngine.GamePhase.POST_TURN: return "POST_TURN"
+		GameEngine.GamePhase.GAME_OVER: return "GAME_OVER"
+		_: return "UNKNOWN"

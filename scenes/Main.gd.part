@@ -1,0 +1,46 @@
+func _setup_teams() -> void:
+	if not field.calibrated:
+		print("⚠️ Поле не откалибровано!")
+		return
+	
+	print("🚀 Расстановка команд...")
+	
+	if _player_editor:
+		_player_editor.clear_players()
+	
+	# RED (слева) - стандартные позиции
+	var red_positions = [
+		Vector2(8.0, 8.0),
+		Vector2(10.0, 14.0),
+		Vector2(7.0, 20.0),
+		Vector2(12.0, 26.0),
+		Vector2(9.0, 32.0)
+	]
+	
+	for pos in red_positions:
+		var screen_pos = field.field_to_screen(pos)
+		_player_editor.create_player(Player.Team.RED, screen_pos)
+	
+	# BLUE (справа) - стандартные позиции
+	var blue_positions = [
+		Vector2(37.0, 8.0),
+		Vector2(35.0, 14.0),
+		Vector2(38.0, 20.0),
+		Vector2(33.0, 26.0),
+		Vector2(36.0, 32.0)
+	]
+	
+	for pos in blue_positions:
+		var screen_pos = field.field_to_screen(pos)
+		_player_editor.create_player(Player.Team.BLUE, screen_pos)
+	
+	print("✅ Команды расставлены!")
+	
+	if _start_button:
+		_start_button.visible = true
+		_start_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+		_center_start_button()
+		print("✅ Кнопка СТАРТ показана")
+	
+	if hint:
+		hint.text = "✅ Команды расставлены! Нажмите СТАРТ"

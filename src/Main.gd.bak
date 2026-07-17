@@ -1,0 +1,99 @@
+
+var _end_turn_button: Button = null
+
+func _create_end_turn_button() -> void:
+	_end_turn_button = Button.new()
+	_end_turn_button.text = "⏭️ ЗАВЕРШИТЬ ХОД"
+	_end_turn_button.size = Vector2(200, 60)
+	_end_turn_button.add_theme_font_size_override("font_size", 24)
+	_end_turn_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+	_end_turn_button.pressed.connect(_on_end_turn_pressed)
+	_end_turn_button.visible = false
+	call_deferred("_center_end_turn_button")
+	add_child(_end_turn_button)
+
+func _center_end_turn_button() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	_end_turn_button.position = Vector2(
+		viewport_size.x / 2 - 100,
+		viewport_size.y - 80
+	)
+
+func _on_end_turn_pressed() -> void:
+	print("⏭️ Игрок завершил ход!")
+	_end_turn_button.visible = false
+	if _game_manager:
+		_game_manager.finish_player_turn()
+
+# ===== КНОПКИ УПРАВЛЕНИЯ ИГРОЙ =====
+
+var _end_turn_button: Button = null
+
+func _create_game_controls() -> void:
+	_end_turn_button = Button.new()
+	_end_turn_button.text = "✅ ЗАВЕРШИТЬ ХОД"
+	_end_turn_button.size = Vector2(220, 60)
+	_end_turn_button.add_theme_font_size_override("font_size", 24)
+	_end_turn_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+	_end_turn_button.pressed.connect(_on_end_turn_pressed)
+	_end_turn_button.visible = false
+	call_deferred("_center_end_turn_button")
+	add_child(_end_turn_button)
+
+func _center_end_turn_button() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	_end_turn_button.position = Vector2(
+		viewport_size.x / 2 - 110,
+		viewport_size.y - 80
+	)
+
+func _on_end_turn_pressed() -> void:
+	print("⏭️ Игрок нажал 'Завершить ход'!")
+	
+	if _game_engine:
+		_game_engine.finish_player_turn()
+		_end_turn_button.visible = false
+	else:
+		print("❌ GameEngine не найден!")
+
+func _update_game_ui() -> void:
+	if not _end_turn_button:
+		return
+	
+	if not _game_engine:
+		_end_turn_button.visible = false
+		return
+	
+	var phase = _game_engine.get_phase()
+	match phase:
+		GameEngine.GamePhase.PLAYER_TURN:
+			_end_turn_button.visible = true
+			_end_turn_button.text = "⏭️ ЗАВЕРШИТЬ ХОД"
+			_end_turn_button.modulate = Color(0.2, 0.8, 0.2, 1.0)
+			if hint:
+				hint.text = "🎯 Ваш ход! Двигайте игроков, затем нажмите 'Завершить ход'"
+		GameEngine.GamePhase.AI_TURN:
+			_end_turn_button.visible = false
+			if hint:
+				hint.text = "🤖 Ход компьютера..."
+		GameEngine.GamePhase.BREAKOUT:
+			_end_turn_button.visible = false
+			if hint:
+				hint.text = "🏃 Разбежка! AI занимает укрытия..."
+		GameEngine.GamePhase.GAME_OVER:
+			_end_turn_button.visible = false
+		_:
+			_end_turn_button.visible = false
+
+func _on_phase_changed(new_phase: int) -> void:
+	print("📊 Фаза игры изменена: ", _phase_name(new_phase))
+	_update_game_ui()
+
+func _phase_name(phase: int) -> String:
+	match phase:
+		GameEngine.GamePhase.BREAKOUT: return "BREAKOUT"
+		GameEngine.GamePhase.PLAYER_TURN: return "PLAYER_TURN"
+		GameEngine.GamePhase.AI_TURN: return "AI_TURN"
+		GameEngine.GamePhase.POST_TURN: return "POST_TURN"
+		GameEngine.GamePhase.GAME_OVER: return "GAME_OVER"
+		_: return "UNKNOWN"

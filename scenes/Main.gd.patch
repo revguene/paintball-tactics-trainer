@@ -1,0 +1,54 @@
+func enter_game_mode_only() -> void:
+	editor_mode = EditorMode.Mode.GAME
+	print("🎮 Режим: GAME (ожидание старта)")
+	
+	if _field_editor:
+		_field_editor.visible = false
+	if _player_editor:
+		_player_editor.visible = true
+	
+	# Скрываем все элементы UI, кроме подсказки
+	if background:
+		background.visible = false
+	if title:
+		title.visible = false
+	if subtitle:
+		subtitle.visible = false
+	
+	# Показываем изображение
+	field_image.visible = true
+	field_image.show()
+	field_image.modulate = Color.WHITE
+	field_image.z_index = 0
+	
+	if hint:
+		hint.visible = true
+		hint.text = "ПКМ по полю → Расставить команды, затем «Старт игры»"
+
+func enter_game() -> void:
+	editor_mode = EditorMode.Mode.GAME
+	print("🎮 Режим: GAME - запуск игры!")
+	
+	if _field_editor:
+		_field_editor.visible = false
+	if _player_editor:
+		_player_editor.visible = true
+	
+	if background:
+		background.visible = false
+	if title:
+		title.visible = false
+	if subtitle:
+		subtitle.visible = false
+	
+	field_image.visible = true
+	field_image.show()
+	field_image.modulate = Color.WHITE
+	field_image.z_index = 0
+	
+	if hint:
+		hint.visible = true
+		hint.text = "🎯 Игра началась! Ход игрока"
+	
+	if _game_manager:
+		_game_manager.start_game()

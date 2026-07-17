@@ -1,0 +1,8 @@
+--- a/scenes/Main.gd
++++ b/scenes/Main.gd
+@@ -1028,6 +1028,6 @@
+ func _process(delta: float) -> void:
+-	if _game_manager:
+-		_game_manager.update(delta)
++	# GameManager теперь управляется событиями, не требует обновления каждый кадр
++	pass
