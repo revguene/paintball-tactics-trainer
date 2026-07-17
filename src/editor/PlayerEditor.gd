@@ -19,8 +19,7 @@ const DOUBLE_CLICK_TIME := 0.3
 const WHEEL_ROTATION_DEGREES := 0.5
 const PLAYER_RADIUS := 0.4
 
-# Для запоминания последнего крайнего положения при Tab
-var _last_extreme: int = -1  # -1 = нет, 0 = LEFT, 1 = RIGHT
+var _last_extreme: int = -1
 
 func set_field_reference(field: Field) -> void:
 	field_ref = field
@@ -106,16 +105,13 @@ func _input(event: InputEvent) -> void:
 					var current_time = Time.get_ticks_msec() / 1000.0
 					var time_since_last = current_time - _last_click_time
 					
-					# === ДВОЙНОЙ КЛИК ===
 					if _last_clicked_player == clicked and time_since_last < DOUBLE_CLICK_TIME:
 						print("🔄 Двойной клик по игроку %d" % clicked.player.number)
 						_select_player(clicked)
 						
-						# Ставим луч ПО ЦЕНТРУ
 						clicked.player.set_ray_origin_center()
 						print("↔️ Направление луча: ЦЕНТР")
 						
-						# Включаем/выключаем луч (toggle)
 						if clicked.is_handle_extended():
 							clicked.disable_ray()
 							if clicked.is_editing_ray:
@@ -156,7 +152,6 @@ func _input(event: InputEvent) -> void:
 			else:
 				dragging = false
 		
-		# === ПКМ ===
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed:
 				if selected_player and selected_player.is_editing_ray and selected_player.is_over_ray_handle(mouse_pos):
@@ -210,33 +205,32 @@ func _input(event: InputEvent) -> void:
 	
 	# === КЛАВИАТУРА ===
 	if event is InputEventKey and event.pressed:
-		# TAB - переключение направления луча (ТОЛЬКО если выделен игрок)
 		if event.keycode == KEY_TAB:
+			# Отмечаем, что Tab обработан
+			get_viewport().set_input_as_handled()
+			
 			if selected_player:
 				var player = selected_player.player
 				
-				# Переключение: CENTER -> LEFT -> CENTER -> RIGHT -> CENTER -> LEFT ...
 				if player.ray_origin == Player.RayOrigin.CENTER:
-					# Из центра - переключаемся на крайнее, которое НЕ было последним
-					if _last_extreme == 0:  # Последнее было LEFT
+					if _last_extreme == 0:
 						player.ray_origin = Player.RayOrigin.RIGHT
 						_last_extreme = 1
 						print("↔️ Направление: ПРАВО")
-					else:  # Последнее было RIGHT или -1 (первый раз)
+					else:
 						player.ray_origin = Player.RayOrigin.LEFT
 						_last_extreme = 0
 						print("↔️ Направление: ЛЕВО")
 				elif player.ray_origin == Player.RayOrigin.LEFT:
 					player.ray_origin = Player.RayOrigin.CENTER
-					_last_extreme = 0  # Запоминаем, что LEFT было последним крайним
+					_last_extreme = 0
 					print("↔️ Направление: ЦЕНТР")
 				elif player.ray_origin == Player.RayOrigin.RIGHT:
 					player.ray_origin = Player.RayOrigin.CENTER
-					_last_extreme = 1  # Запоминаем, что RIGHT было последним крайним
+					_last_extreme = 1
 					print("↔️ Направление: ЦЕНТР")
 				
 				selected_player.queue_redraw()
-				get_viewport().set_input_as_handled()
 			else:
 				print("⚠️ TAB: нет выделенного игрока")
 		
