@@ -61,7 +61,7 @@ func _draw():
 	if player.status == Player.Status.ELIMINATED:
 		color = color.darkened(0.5)
 	
-	# === КРУГ ИГРОКА ===
+	# Круг игрока
 	draw_circle(Vector2.ZERO, radius, color)
 	draw_circle(Vector2.ZERO, radius, color.darkened(0.2), false, 1.5)
 	
@@ -76,32 +76,23 @@ func _draw():
 			Color(1.0, 1.0, 1.0, 0.9)
 		)
 	
-	# === НАПРАВЛЕНИЕ (дуло) ===
+	# Направление
 	var dir = Vector2(1, 0).rotated(player.rotation)
 	var end_pos = dir * (radius * 1.8)
 	draw_circle(end_pos, 4.0, Color(1.0, 0.3, 0.3, 1.0))
 	
-	# === ЛУЧ ===
-	if show_ray:
+	# ЛУЧ
+	if show_ray and _field_ref and _field_ref.calibrated:
 		var direction = Vector2(1, 0).rotated(player.rotation)
 		var origin_metric = player.position_metric
 		
-		# Смещение точки выхода
 		var offset_local = player.get_ray_offset(radius)
 		var offset_rotated = offset_local.rotated(player.rotation)
-		
-		# Точка выхода луча в метрах
-		var origin_metric_offset = origin_metric + _field_ref.screen_to_field(offset_rotated + position) - origin_metric
-		# Упрощенно: переводим смещение в метры
-		var offset_metric = Vector2(
-			offset_rotated.x / 20.0,
-			offset_rotated.y / 20.0
-		)
+		var offset_metric = Vector2(offset_rotated.x / 20.0, offset_rotated.y / 20.0)
 		var ray_origin_metric = origin_metric + offset_metric
 		
 		var bunkers = _get_bunkers()
 		
-		# Каст луча от ТОЧКИ ВЫХОДА
 		var max_ray_end = RayCaster.cast(ray_origin_metric, direction, bunkers, _field_ref)
 		var max_length = ray_origin_metric.distance_to(max_ray_end)
 		
@@ -109,7 +100,6 @@ func _draw():
 		var ray_end_metric = ray_origin_metric + direction * current_length
 		var ray_end_px = _field_ref.field_to_screen(ray_end_metric)
 		
-		# Начало луча в пикселях (смещенная позиция)
 		var local_start = offset_rotated
 		var local_end = ray_end_px - position
 		
@@ -117,13 +107,14 @@ func _draw():
 			var ray_color = get_ray_color()
 			draw_line(local_start, local_end, ray_color, 2.5)
 			
+			# Точки на луче
 			var num_dots = 5
 			for i in range(1, num_dots):
 				var t = i / float(num_dots)
 				var dot_pos = local_start + (local_end - local_start) * t
 				draw_circle(dot_pos, 2.0, ray_color, 0.5)
 			
-			# Проверка попадания в бункер (от точки выхода)
+			# Проверка попадания
 			var hit_bunker = false
 			for bunker in bunkers:
 				if bunker is Bunker:
@@ -134,8 +125,8 @@ func _draw():
 			
 			if hit_bunker:
 				draw_circle(local_end, 6.0, Color(1.0, 0.0, 0.0, 0.9))
-				var cross = 8.0
 				var perp = Vector2(-dir.y, dir.x)
+				var cross = 8.0
 				draw_line(local_end - dir * cross, local_end + dir * cross, Color(1.0, 0.0, 0.0, 0.6), 1.5)
 				draw_line(local_end - perp * cross, local_end + perp * cross, Color(1.0, 0.0, 0.0, 0.6), 1.5)
 			else:
@@ -144,17 +135,8 @@ func _draw():
 			if is_editing_ray:
 				draw_circle(local_end, 10.0, Color(0.0, 0.8, 1.0, 0.6))
 				draw_circle(local_end, 10.0, Color(0.0, 0.5, 1.0, 0.9), false, 2.0)
-				draw_string(
-					ThemeDB.fallback_font,
-					local_end + Vector2(12, -8),
-					"↕",
-					HORIZONTAL_ALIGNMENT_LEFT,
-					-1,
-					16,
-					Color(0.0, 0.8, 1.0, 0.8)
-				)
 		
-		# Точка выхода луча (визуальная подсказка)
+		# Точка выхода луча
 		if selected:
 			var dot_color = Color(0.0, 1.0, 0.0, 0.8)
 			match player.ray_origin:
@@ -181,13 +163,12 @@ func _draw():
 		draw_arc(Vector2.ZERO, radius + 8, 0, TAU, 32, Color(1.0, 0.8, 0.0, 0.2), 1.0)
 
 func get_ray_end_pixel() -> Vector2:
-	if not show_ray or not _field_ref:
+	if not show_ray or not _field_ref or not _field_ref.calibrated:
 		return position
 	
 	var origin_metric = player.position_metric
 	var direction = Vector2(1, 0).rotated(player.rotation)
 	
-	# Смещение точки выхода
 	var offset_local = player.get_ray_offset(radius)
 	var offset_rotated = offset_local.rotated(player.rotation)
 	var offset_metric = Vector2(offset_rotated.x / 20.0, offset_rotated.y / 20.0)
@@ -220,7 +201,7 @@ func stop_editing() -> void:
 	queue_redraw()
 
 func update_ray_length(mouse_pos: Vector2) -> void:
-	if not is_dragging_handle or not _field_ref:
+	if not is_dragging_handle or not _field_ref or not _field_ref.calibrated:
 		return
 	
 	var origin_metric = player.position_metric

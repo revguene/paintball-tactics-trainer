@@ -14,14 +14,13 @@ func _ready() -> void:
 func _rebuild_menu() -> void:
 	clear()
 	
+	# Стрельба / Ожидание (toggle)
 	if _visual_ref and _visual_ref.is_handle_extended():
 		add_item("⏸️ Ожидание", 0)
 	else:
 		add_item("🔫 Стрельба", 0)
 	
-	# Переключение только Лево/Право (без указания текущего)
 	add_item("↔️ Сменить направление", 1)
-	
 	add_item("📏 Изменить длину луча", 2)
 	
 	if _player_ref and _player_ref.status == Player.Status.ELIMINATED:
