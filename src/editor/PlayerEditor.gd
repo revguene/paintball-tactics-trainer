@@ -20,12 +20,15 @@ const WHEEL_ROTATION_DEGREES := 0.5
 const PLAYER_RADIUS := 0.4
 
 var _last_extreme: int = -1
+var movement_locked := false
 
 func set_field_reference(field: Field) -> void:
 	field_ref = field
+	print("✅ PlayerEditor field_ref установлен")
 
 func set_editor_reference(editor: FieldEditor) -> void:
 	editor_ref = editor
+	print("✅ PlayerEditor editor_ref установлен")
 
 func _ready() -> void:
 	print("✅ PlayerEditor готов")
@@ -35,6 +38,14 @@ func _setup_context_menu() -> void:
 	_context_menu = PlayerContextMenu.new()
 	_context_menu.option_selected.connect(_on_menu_option_selected)
 	add_child(_context_menu)
+
+func lock_movement() -> void:
+	movement_locked = true
+	print("🔒 Перемещение игроков заблокировано")
+
+func unlock_movement() -> void:
+	movement_locked = false
+	print("🔓 Перемещение игроков разблокировано")
 
 func _on_menu_option_selected(option: String) -> void:
 	if not _menu_visual or not _menu_visual.player:
@@ -88,10 +99,15 @@ func _input(event: InputEvent) -> void:
 	if not main.is_tactical_editor():
 		return
 	
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+	var mouse_pos := get_global_mouse_position()
+	
+	if movement_locked:
+		if event is InputEventMouseMotion and selected_player and selected_player.is_dragging_handle:
+			selected_player.update_ray_length(mouse_pos)
 		return
 	
-	var mouse_pos := get_global_mouse_position()
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		return
 	
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -203,10 +219,8 @@ func _input(event: InputEvent) -> void:
 		if dragging and selected_player:
 			_move_player_with_sliding(mouse_pos)
 	
-	# === КЛАВИАТУРА ===
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_TAB:
-			# Отмечаем, что Tab обработан
 			get_viewport().set_input_as_handled()
 			
 			if selected_player:
@@ -250,6 +264,9 @@ func _input(event: InputEvent) -> void:
 				_remove_player(selected_player)
 
 func _move_player_with_sliding(mouse_pos: Vector2) -> void:
+	if movement_locked:
+		return
+	
 	if not selected_player or not selected_player.player:
 		return
 	
@@ -292,45 +309,80 @@ func _check_bunker_collision(player_pos: Vector2) -> bool:
 	if not editor_ref:
 		return false
 	
+	var player_radius := 0.4
+	
 	for child in editor_ref.get_children():
 		if child is Bunker:
 			var geometry = child.get_geometry()
 			if not geometry:
 				continue
 			
-			var bunker_pos = child.field_position
+			var bunker_vertices = geometry.get_world_vertices(
+				child.field_position,
+				1.0,
+				child.rotation
+			)
 			
-			var info = BunkerLibrary.get_info(child.bunker_type)
-			if info.is_empty():
+			if bunker_vertices.size() < 3:
 				continue
 			
-			var bunker_radius = 0.5
-			match info.get("shape", ""):
-				"circle":
-					bunker_radius = info.get("radius", 0.5)
-				"rect", "square", "wing", "plus", "snake":
-					var w = info.get("width", 1.0)
-					var h = info.get("height", 1.0)
-					bunker_radius = max(w, h) / 2.0
-				"triangle":
-					bunker_radius = info.get("size", 1.0) / 2.0
-				_:
-					bunker_radius = 0.5
-			
-			var dist = player_pos.distance_to(bunker_pos)
-			
-			if dist < bunker_radius + PLAYER_RADIUS:
+			if _circle_intersects_polygon(player_pos, player_radius, bunker_vertices):
 				return true
 	
 	return false
 
+func _circle_intersects_polygon(center: Vector2, radius: float, polygon: PackedVector2Array) -> bool:
+	if polygon.size() < 3:
+		return false
+	
+	if _point_in_polygon(center, polygon):
+		return true
+	
+	for i in range(polygon.size()):
+		var j = (i + 1) % polygon.size()
+		var a = polygon[i]
+		var b = polygon[j]
+		
+		var closest = _closest_point_on_segment(center, a, b)
+		if center.distance_to(closest) < radius:
+			return true
+	
+	return false
+
+func _point_in_polygon(point: Vector2, polygon: PackedVector2Array) -> bool:
+	if polygon.size() < 3:
+		return false
+	
+	var inside := false
+	var j := polygon.size() - 1
+	
+	for i in range(polygon.size()):
+		var xi := polygon[i].x
+		var yi := polygon[i].y
+		var xj := polygon[j].x
+		var yj := polygon[j].y
+		
+		if ((yi > point.y) != (yj > point.y)) and \
+		   (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi):
+			inside = !inside
+		
+		j = i
+	
+	return inside
+
+func _closest_point_on_segment(point: Vector2, a: Vector2, b: Vector2) -> Vector2:
+	var ab := b - a
+	var t := (point - a).dot(ab) / ab.dot(ab)
+	t = clamp(t, 0.0, 1.0)
+	return a + ab * t
+
 func create_player(team: int, screen_pos: Vector2) -> void:
 	if not field_ref:
-		print("❌ Field reference not set!")
+		print("❌ PlayerEditor: field_ref not set!")
 		return
 	
 	if not editor_ref:
-		print("❌ Editor reference not set!")
+		print("❌ PlayerEditor: editor_ref not set!")
 		return
 	
 	var player = Player.new()
@@ -352,13 +404,18 @@ func create_player(team: int, screen_pos: Vector2) -> void:
 	else:
 		player.position_metric = screen_pos
 	
+	if team == Player.Team.RED:
+		player.rotation = 0.0
+	else:
+		player.rotation = PI
+	
 	var visual = PlayerVisual.new()
 	visual.setup(player, field_ref, editor_ref)
 	add_child(visual)
 	players.append(visual)
 	
 	var team_name = "RED" if team == Player.Team.RED else "BLUE"
-	print("✅ Игрок %s (%s) создан на позиции: (%.2f, %.2f) м" % [player.number, team_name, player.position_metric.x, player.position_metric.y])
+	print("✅ Игрок ", player.number, " (", team_name, ") создан на позиции: (", player.position_metric.x, ", ", player.position_metric.y, ") м")
 
 func _get_player_at(pos: Vector2) -> PlayerVisual:
 	for visual in players:
@@ -417,3 +474,110 @@ func clear_players() -> void:
 	_block_camera_zoom(false)
 	if _context_menu and _context_menu.visible:
 		_context_menu.hide()
+
+# ============================================================
+# === РАССТАНОВКА ВДОЛЬ БАННЕРА ===
+# ============================================================
+
+func place_players_along_banner(banner: Bunker, team: int, player_count: int = 5) -> void:
+	if not field_ref or not field_ref.calibrated:
+		print("❌ Поле не откалибровано!")
+		return
+	
+	if not banner:
+		print("❌ Баннер не найден!")
+		return
+	
+	if banner.bunker_type != BunkerType.Type.BANNER:
+		print("❌ Указанное укрытие не является баннером!")
+		return
+	
+	# Удаляем старых игроков этой команды
+	var to_remove = []
+	for visual in players:
+		if visual.player and visual.player.team == team:
+			to_remove.append(visual)
+	for visual in to_remove:
+		players.erase(visual)
+		visual.queue_free()
+	
+	var banner_pos = banner.field_position
+	var center_y = banner_pos.y
+	var offset_from_edge = 0.70  # 70 см от края поля
+	
+	var fixed_x: float
+	if team == Player.Team.RED:
+		fixed_x = offset_from_edge
+	else:
+		fixed_x = 45.0 - offset_from_edge
+	
+	# Шаг по Y увеличен до 0.8 м
+	var y_offsets = [-1.60, -0.80, 0.0, 0.80, 1.60]
+	var positions = []
+	
+	for i in range(player_count):
+		var y = center_y + y_offsets[i]
+		positions.append(Vector2(fixed_x, y))
+	
+	var created = 0
+	for i in range(positions.size()):
+		var pos = positions[i]
+		var screen_pos = field_ref.field_to_screen(pos)
+		
+		var metric_pos = field_ref.screen_to_field(screen_pos)
+		if _check_bunker_collision(metric_pos):
+			print("⚠️ Невозможно создать игрока: место занято бункером!")
+			print("   Игрок ", i+1, " на позиции (", pos.x, ", ", pos.y, ")")
+			continue
+		
+		create_player(team, screen_pos)
+		print("   Игрок ", i+1, " на позиции (", pos.x, ", ", pos.y, ")")
+		created += 1
+	
+	print("✅ ", created, " игроков расставлены вдоль баннера")
+
+func reset_to_banner(field: Field) -> void:
+	if not field or not field.calibrated:
+		print("❌ Поле не откалибровано!")
+		return
+	
+	print("🔄 Сброс игроков на баннер")
+	
+	for visual in players:
+		if not visual or not visual.player:
+			continue
+		
+		var player = visual.player
+		
+		var banner_x: float
+		if player.team == Player.Team.RED:
+			banner_x = 2.0
+			player.rotation = 0.0
+		else:
+			banner_x = 43.0
+			player.rotation = PI
+		
+		var index = 0
+		for v in players:
+			if v.player and v.player.team == player.team and v.player.number < player.number:
+				index += 1
+		
+		var y = 3.0 + index * 7.5
+		var pos = Vector2(banner_x + (index % 2) * 2.0, y)
+		
+		player.position_metric = pos
+		var screen_pos = field.field_to_screen(pos)
+		visual.position = screen_pos
+		
+		visual.disable_ray()
+		
+		print("   Игрок ", player.number, " → (", pos.x, ", ", pos.y, ")")
+	
+	print("✅ Все игроки на баннере")
+	
+	if selected_player:
+		selected_player.deselect()
+		selected_player = null
+	
+	unlock_movement()
+	queue_redraw()

@@ -4,7 +4,7 @@ extends Control
 signal edit_field()
 signal save_project(path: String)
 signal load_project(path: String)
-signal game_mode_with_file(path: String)  # Только этот сигнал для Game
+signal game_mode()
 signal exit_app()
 
 var _file_dialog: FileDialog = null
@@ -77,21 +77,17 @@ func _setup_save_dialog() -> void:
 
 func _on_file_selected(path: String) -> void:
 	var ext = path.get_extension().to_lower()
-	print("📁 Выбран файл: %s (расширение: %s)" % [path, ext])
+	print("📁 Выбран файл: ", path, " (расширение: ", ext, ")")
 	
 	if ext in ["png", "jpg", "jpeg"]:
+		print("🖼️ Загрузка изображения поля")
 		edit_field.emit()
 		var main = get_tree().current_scene
 		if main and main.has_method("load_field"):
 			main.load_field(path)
 	elif ext == "ptf":
-		# Определяем, откуда вызов - из Load Project или Game
-		if _file_dialog.title == "Выберите файл поля для игры":
-			print("🎮 Загрузка Game файла: %s" % path)
-			game_mode_with_file.emit(path)
-		else:
-			print("📂 Загрузка Project файла: %s" % path)
-			load_project.emit(path)
+		print("📂 Загрузка проекта .ptf")
+		load_project.emit(path)
 
 func _on_save_file_selected(path: String) -> void:
 	if not path.ends_with(".ptf"):
@@ -100,7 +96,7 @@ func _on_save_file_selected(path: String) -> void:
 	save_project.emit(path)
 
 func _on_file_dialog_canceled() -> void:
-	print("❌ Выбор файла отменён")
+	print("Выбор файла отменён")
 
 func open_image_dialog() -> void:
 	_file_dialog.title = "Выберите изображение поля"

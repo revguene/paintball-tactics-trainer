@@ -16,12 +16,14 @@ const HANDLE_RADIUS := 12.0
 
 const COLOR_BLUE := Color(0.4, 0.6, 0.9, 1.0)
 const COLOR_RED := Color(0.85, 0.1, 0.1, 1.0)
+const COLOR_BANNER := Color(0.5, 0.8, 1.0, 1.0)  # Светло-голубой
 
 func get_color() -> Color:
 	match bunker_type:
 		BunkerType.Type.GIANT_BLOCK: return COLOR_BLUE
 		BunkerType.Type.GIANT_WING: return COLOR_BLUE
 		BunkerType.Type.MINI_M: return COLOR_BLUE
+		BunkerType.Type.BANNER: return COLOR_BANNER
 		_: return COLOR_RED
 
 func _ready():
@@ -99,6 +101,8 @@ func _draw():
 			_draw_rect(1.00, 2.80, color)
 		BunkerType.Type.BRICK:
 			_draw_rect(1.90, 1.00, color)
+		BunkerType.Type.BANNER:
+			_draw_banner(color)
 		_:
 			_draw_circle(0.5, COLOR_RED)
 	
@@ -160,7 +164,6 @@ func _draw_triangle(size: float, color: Color):
 	])
 	draw_polygon(pts, [color])
 	
-	# Правильный способ для GDScript 4
 	var outline = PackedVector2Array()
 	outline.append_array(pts)
 	outline.append(pts[0])
@@ -170,6 +173,30 @@ func _draw_plus(size: float, color: Color):
 	var s = meter_to_px(size)
 	draw_rect(Rect2(-s * 0.15, -s / 2, s * 0.3, s), color)
 	draw_rect(Rect2(-s / 2, -s * 0.15, s, s * 0.3), color)
+
+func _draw_banner(color: Color):
+	# Баннер - длинная и тонкая полоса (2.5м x 0.2м)
+	var w = meter_to_px(2.5)
+	var h = meter_to_px(0.2)
+	
+	var r = Rect2(-w / 2, -h / 2, w, h)
+	draw_rect(r, color)
+	draw_rect(r, color.darkened(0.3), false, 2)
+	
+	# Точки по краям
+	draw_circle(Vector2(-w / 2, 0), 3.0, Color(1.0, 1.0, 1.0, 0.5))
+	draw_circle(Vector2(w / 2, 0), 3.0, Color(1.0, 1.0, 1.0, 0.5))
+	
+	# Метка "B" в центре
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(-20, 5),
+		"B",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		-1,
+		10,
+		Color(1.0, 1.0, 1.0, 0.6)
+	)
 
 func select():
 	if is_mirror:

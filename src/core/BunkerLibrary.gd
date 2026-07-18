@@ -98,6 +98,12 @@ const DATA := {
 		"shape": "rect",
 		"width": 1.90,
 		"height": 1.00
+	},
+	BunkerType.Type.BANNER: {
+		"name": "Banner",
+		"shape": "rect",
+		"width": 2.50,
+		"height": 0.20
 	}
 }
 

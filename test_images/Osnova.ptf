@@ -4,23 +4,23 @@
 			"id": 1,
 			"is_mirror": false,
 			"mirror_id": 2,
-			"rotation": 0.0,
-			"type": 8,
-			"type_name": "Pillar",
+			"rotation": 1.58008599281311,
+			"type": 17,
+			"type_name": "Banner",
 			"visible": true,
-			"x": 18.4243965148926,
-			"y": 11.4378347396851
+			"x": 0.0,
+			"y": 17.9591960906982
 		},
 		{
 			"id": 2,
 			"is_mirror": true,
 			"mirror_id": 1,
-			"rotation": 0.0,
-			"type": 8,
-			"type_name": "Pillar",
+			"rotation": -1.58008599281311,
+			"type": 17,
+			"type_name": "Banner",
 			"visible": true,
-			"x": 26.7920169830322,
-			"y": 11.4378347396851
+			"x": 44.8379058837891,
+			"y": 17.9591960906982
 		},
 		{
 			"id": 3,
@@ -30,8 +30,8 @@
 			"type": 8,
 			"type_name": "Pillar",
 			"visible": true,
-			"x": 18.3740139007568,
-			"y": 20.6611270904541
+			"x": 18.377965927124,
+			"y": 11.5079116821289
 		},
 		{
 			"id": 4,
@@ -41,30 +41,30 @@
 			"type": 8,
 			"type_name": "Pillar",
 			"visible": true,
-			"x": 26.8424034118652,
-			"y": 20.6611270904541
+			"x": 26.6151390075684,
+			"y": 11.5079116821289
 		},
 		{
 			"id": 5,
 			"is_mirror": false,
 			"mirror_id": 6,
 			"rotation": 0.0,
-			"type": 7,
-			"type_name": "Can",
+			"type": 8,
+			"type_name": "Pillar",
 			"visible": true,
-			"x": 11.3248891830444,
-			"y": 18.0513610839844
+			"x": 18.2895927429199,
+			"y": 20.6074981689453
 		},
 		{
 			"id": 6,
 			"is_mirror": true,
 			"mirror_id": 5,
 			"rotation": 0.0,
-			"type": 7,
-			"type_name": "Can",
+			"type": 8,
+			"type_name": "Pillar",
 			"visible": true,
-			"x": 33.891529083252,
-			"y": 18.0513610839844
+			"x": 26.7035121917725,
+			"y": 20.6074981689453
 		},
 		{
 			"id": 7,
@@ -74,8 +74,8 @@
 			"type": 7,
 			"type_name": "Can",
 			"visible": true,
-			"x": 3.33704519271851,
-			"y": 18.0721015930176
+			"x": 11.3157348632812,
+			"y": 17.9750881195068
 		},
 		{
 			"id": 8,
@@ -85,449 +85,449 @@
 			"type": 7,
 			"type_name": "Can",
 			"visible": true,
-			"x": 41.8793716430664,
-			"y": 18.0721015930176
+			"x": 33.6773643493652,
+			"y": 17.9750881195068
 		},
 		{
 			"id": 9,
 			"is_mirror": false,
 			"mirror_id": 10,
 			"rotation": 0.0,
-			"type": 6,
-			"type_name": "Temple",
+			"type": 7,
+			"type_name": "Can",
 			"visible": true,
-			"x": 5.81895875930786,
-			"y": 27.2356700897217
+			"x": 3.287348985672,
+			"y": 18.0048904418945
 		},
 		{
 			"id": 10,
 			"is_mirror": true,
 			"mirror_id": 9,
 			"rotation": 0.0,
-			"type": 6,
-			"type_name": "Temple",
+			"type": 7,
+			"type_name": "Can",
 			"visible": true,
-			"x": 39.3974571228027,
-			"y": 27.2356700897217
+			"x": 41.7057571411133,
+			"y": 18.0048904418945
 		},
 		{
 			"id": 11,
 			"is_mirror": false,
 			"mirror_id": 12,
-			"rotation": 0.0,
-			"type": 5,
-			"type_name": "Mayan Temple",
+			"rotation": 1.57092773914337,
+			"type": 2,
+			"type_name": "Giant Wing",
 			"visible": true,
-			"x": 5.83454704284668,
-			"y": 21.7568893432617
+			"x": 22.493803024292,
+			"y": 7.1202826499939
 		},
 		{
 			"id": 12,
 			"is_mirror": true,
 			"mirror_id": 11,
-			"rotation": 0.0,
-			"type": 5,
-			"type_name": "Mayan Temple",
+			"rotation": -1.57092773914337,
+			"type": 2,
+			"type_name": "Giant Wing",
 			"visible": true,
-			"x": 39.3818702697754,
-			"y": 21.7568893432617
+			"x": 22.4993000030518,
+			"y": 7.1202826499939
 		},
 		{
 			"id": 13,
 			"is_mirror": false,
 			"mirror_id": 14,
-			"rotation": 0.0,
-			"type": 5,
-			"type_name": "Mayan Temple",
+			"rotation": 1.57217609882355,
+			"type": 0,
+			"type_name": "Giant Block",
 			"visible": true,
-			"x": 6.55851554870605,
-			"y": 12.6866512298584
+			"x": 22.4824066162109,
+			"y": 16.4555435180664
 		},
 		{
 			"id": 14,
 			"is_mirror": true,
 			"mirror_id": 13,
-			"rotation": 0.0,
-			"type": 5,
-			"type_name": "Mayan Temple",
+			"rotation": -1.57217609882355,
+			"type": 0,
+			"type_name": "Giant Block",
 			"visible": true,
-			"x": 38.657901763916,
-			"y": 12.6866512298584
+			"x": 22.5106964111328,
+			"y": 16.4555435180664
 		},
 		{
 			"id": 15,
 			"is_mirror": false,
 			"mirror_id": 16,
-			"rotation": 0.0,
-			"type": 9,
-			"type_name": "Cake",
+			"rotation": 1.57234239578247,
+			"type": 2,
+			"type_name": "Giant Wing",
 			"visible": true,
-			"x": 11.2160844802856,
-			"y": 30.9971084594727
+			"x": 22.4877758026123,
+			"y": 25.8323593139648
 		},
 		{
 			"id": 16,
 			"is_mirror": true,
 			"mirror_id": 15,
-			"rotation": 0.0,
-			"type": 9,
-			"type_name": "Cake",
+			"rotation": -1.57234239578247,
+			"type": 2,
+			"type_name": "Giant Wing",
 			"visible": true,
-			"x": 34.0003318786621,
-			"y": 30.9971084594727
+			"x": 22.5053272247314,
+			"y": 25.8323593139648
+		},
+		{
+			"id": 17,
+			"is_mirror": false,
+			"mirror_id": 18,
+			"rotation": 0.0,
+			"type": 11,
+			"type_name": "Dorito Medium",
+			"visible": true,
+			"x": 15.9020519256592,
+			"y": 4.95446681976318
+		},
+		{
+			"id": 18,
+			"is_mirror": true,
+			"mirror_id": 17,
+			"rotation": 0.0,
+			"type": 11,
+			"type_name": "Dorito Medium",
+			"visible": true,
+			"x": 29.0910491943359,
+			"y": 4.95446681976318
 		},
 		{
 			"id": 19,
 			"is_mirror": false,
 			"mirror_id": 20,
 			"rotation": 0.0,
-			"type": 14,
-			"type_name": "Snake Small",
+			"type": 11,
+			"type_name": "Dorito Medium",
 			"visible": true,
-			"x": 22.3334980010986,
-			"y": 29.9503517150879
+			"x": 11.8501710891724,
+			"y": 4.89930486679077
 		},
 		{
 			"id": 20,
 			"is_mirror": true,
 			"mirror_id": 19,
 			"rotation": 0.0,
-			"type": 14,
-			"type_name": "Snake Small",
+			"type": 11,
+			"type_name": "Dorito Medium",
 			"visible": true,
-			"x": 22.8829193115234,
-			"y": 29.9503517150879
+			"x": 33.1429328918457,
+			"y": 4.89930486679077
 		},
 		{
 			"id": 21,
 			"is_mirror": false,
 			"mirror_id": 22,
 			"rotation": 0.0,
-			"type": 15,
-			"type_name": "Mini M",
+			"type": 11,
+			"type_name": "Dorito Medium",
 			"visible": true,
-			"x": 20.7812461853027,
-			"y": 30.8067855834961
+			"x": 8.01353549957275,
+			"y": 4.94129228591919
 		},
 		{
 			"id": 22,
 			"is_mirror": true,
 			"mirror_id": 21,
 			"rotation": 0.0,
-			"type": 15,
-			"type_name": "Mini M",
+			"type": 11,
+			"type_name": "Dorito Medium",
 			"visible": true,
-			"x": 24.4351711273193,
-			"y": 30.8067855834961
+			"x": 36.9795684814453,
+			"y": 4.94129228591919
+		},
+		{
+			"id": 23,
+			"is_mirror": false,
+			"mirror_id": 24,
+			"rotation": 0.0,
+			"type": 12,
+			"type_name": "Dorito Small",
+			"visible": true,
+			"x": 20.0763111114502,
+			"y": 3.56731653213501
+		},
+		{
+			"id": 24,
+			"is_mirror": true,
+			"mirror_id": 23,
+			"rotation": 0.0,
+			"type": 12,
+			"type_name": "Dorito Small",
+			"visible": true,
+			"x": 24.9167919158936,
+			"y": 3.56731653213501
 		},
 		{
 			"id": 25,
 			"is_mirror": false,
 			"mirror_id": 26,
-			"rotation": 0.0,
-			"type": 15,
-			"type_name": "Mini M",
+			"rotation": 1.57435858249664,
+			"type": 1,
+			"type_name": "Mini Block",
 			"visible": true,
-			"x": 0.0,
-			"y": 18.0686492919922
+			"x": 3.32867240905762,
+			"y": 3.44859504699707
 		},
 		{
 			"id": 26,
 			"is_mirror": true,
 			"mirror_id": 25,
-			"rotation": 0.0,
-			"type": 15,
-			"type_name": "Mini M",
+			"rotation": -1.57435858249664,
+			"type": 1,
+			"type_name": "Mini Block",
 			"visible": true,
-			"x": 45.0,
-			"y": 18.0686492919922
+			"x": 41.6644287109375,
+			"y": 3.44859504699707
 		},
 		{
 			"id": 27,
 			"is_mirror": false,
 			"mirror_id": 28,
 			"rotation": 0.0,
-			"type": 15,
-			"type_name": "Mini M",
+			"type": 5,
+			"type_name": "Mayan Temple",
 			"visible": true,
-			"x": 14.6416721343994,
-			"y": 31.6625862121582
+			"x": 6.57247400283813,
+			"y": 12.7264652252197
 		},
 		{
 			"id": 28,
 			"is_mirror": true,
 			"mirror_id": 27,
 			"rotation": 0.0,
-			"type": 15,
-			"type_name": "Mini M",
+			"type": 5,
+			"type_name": "Mayan Temple",
 			"visible": true,
-			"x": 30.5747451782227,
-			"y": 31.6625862121582
+			"x": 38.4206275939941,
+			"y": 12.7264652252197
 		},
 		{
 			"id": 29,
 			"is_mirror": false,
 			"mirror_id": 30,
-			"rotation": 1.56896817684174,
-			"type": 3,
-			"type_name": "Mini Wing",
+			"rotation": 0.0,
+			"type": 6,
+			"type_name": "Temple",
 			"visible": true,
-			"x": 17.9522285461426,
-			"y": 32.6438903808594
+			"x": 3.53456521034241,
+			"y": 8.32194232940674
 		},
 		{
 			"id": 30,
 			"is_mirror": true,
 			"mirror_id": 29,
-			"rotation": -1.56896817684174,
-			"type": 3,
-			"type_name": "Mini Wing",
+			"rotation": 0.0,
+			"type": 6,
+			"type_name": "Temple",
 			"visible": true,
-			"x": 27.2641906738281,
-			"y": 32.6438903808594
+			"x": 41.4585342407227,
+			"y": 8.32194232940674
 		},
 		{
 			"id": 31,
 			"is_mirror": false,
 			"mirror_id": 32,
-			"rotation": 1.5808572769165,
-			"type": 2,
-			"type_name": "Giant Wing",
+			"rotation": 0.0,
+			"type": 5,
+			"type_name": "Mayan Temple",
 			"visible": true,
-			"x": 22.6186408996582,
-			"y": 25.9398002624512
+			"x": 5.76483631134033,
+			"y": 21.6884899139404
 		},
 		{
 			"id": 32,
 			"is_mirror": true,
 			"mirror_id": 31,
-			"rotation": -1.5808572769165,
-			"type": 2,
-			"type_name": "Giant Wing",
+			"rotation": 0.0,
+			"type": 5,
+			"type_name": "Mayan Temple",
 			"visible": true,
-			"x": 22.5977764129639,
-			"y": 25.9398002624512
+			"x": 39.228271484375,
+			"y": 21.6884899139404
 		},
 		{
 			"id": 33,
 			"is_mirror": false,
 			"mirror_id": 34,
-			"rotation": 1.57165467739105,
-			"type": 0,
-			"type_name": "Giant Block",
+			"rotation": 0.0,
+			"type": 6,
+			"type_name": "Temple",
 			"visible": true,
-			"x": 22.6020984649658,
-			"y": 16.4269695281982
+			"x": 5.76733112335205,
+			"y": 27.2468395233154
 		},
 		{
 			"id": 34,
 			"is_mirror": true,
 			"mirror_id": 33,
-			"rotation": -1.57165467739105,
-			"type": 0,
-			"type_name": "Giant Block",
+			"rotation": 0.0,
+			"type": 6,
+			"type_name": "Temple",
 			"visible": true,
-			"x": 22.6143188476562,
-			"y": 16.4269695281982
+			"x": 39.225772857666,
+			"y": 27.2468395233154
 		},
 		{
 			"id": 35,
 			"is_mirror": false,
 			"mirror_id": 36,
-			"rotation": 1.57273840904236,
-			"type": 2,
-			"type_name": "Giant Wing",
+			"rotation": 1.57528519630432,
+			"type": 16,
+			"type_name": "Brick",
 			"visible": true,
-			"x": 22.6033267974854,
-			"y": 7.05948972702026
+			"x": 5.28145551681519,
+			"y": 32.2624664306641
 		},
 		{
 			"id": 36,
 			"is_mirror": true,
 			"mirror_id": 35,
-			"rotation": -1.57273840904236,
-			"type": 2,
-			"type_name": "Giant Wing",
+			"rotation": -1.57528519630432,
+			"type": 16,
+			"type_name": "Brick",
 			"visible": true,
-			"x": 22.6130905151367,
-			"y": 7.05948972702026
+			"x": 39.7116470336914,
+			"y": 32.2624664306641
 		},
 		{
 			"id": 37,
 			"is_mirror": false,
 			"mirror_id": 38,
 			"rotation": 0.0,
-			"type": 11,
-			"type_name": "Dorito Medium",
+			"type": 9,
+			"type_name": "Cake",
 			"visible": true,
-			"x": 16.0024223327637,
-			"y": 4.72829437255859
+			"x": 11.3172273635864,
+			"y": 30.9021396636963
 		},
 		{
 			"id": 38,
 			"is_mirror": true,
 			"mirror_id": 37,
 			"rotation": 0.0,
-			"type": 11,
-			"type_name": "Dorito Medium",
+			"type": 9,
+			"type_name": "Cake",
 			"visible": true,
-			"x": 29.2139930725098,
-			"y": 4.72829437255859
+			"x": 33.6758728027344,
+			"y": 30.9021396636963
 		},
 		{
 			"id": 39,
 			"is_mirror": false,
 			"mirror_id": 40,
 			"rotation": 0.0,
-			"type": 11,
-			"type_name": "Dorito Medium",
+			"type": 15,
+			"type_name": "Mini M",
 			"visible": true,
-			"x": 11.9151201248169,
-			"y": 4.89535236358643
+			"x": 14.4773235321045,
+			"y": 31.5156860351562
 		},
 		{
 			"id": 40,
 			"is_mirror": true,
 			"mirror_id": 39,
 			"rotation": 0.0,
-			"type": 11,
-			"type_name": "Dorito Medium",
+			"type": 15,
+			"type_name": "Mini M",
 			"visible": true,
-			"x": 33.3012962341309,
-			"y": 4.89535236358643
+			"x": 30.5157775878906,
+			"y": 31.5156860351562
 		},
 		{
 			"id": 41,
 			"is_mirror": false,
 			"mirror_id": 42,
 			"rotation": 0.0,
-			"type": 11,
-			"type_name": "Dorito Medium",
+			"type": 15,
+			"type_name": "Mini M",
 			"visible": true,
-			"x": 7.98347282409668,
-			"y": 4.87231063842773
+			"x": 20.6500244140625,
+			"y": 30.8495483398438
 		},
 		{
 			"id": 42,
 			"is_mirror": true,
 			"mirror_id": 41,
 			"rotation": 0.0,
-			"type": 11,
-			"type_name": "Dorito Medium",
+			"type": 15,
+			"type_name": "Mini M",
 			"visible": true,
-			"x": 37.2329444885254,
-			"y": 4.87231063842773
+			"x": 24.3430786132812,
+			"y": 30.8495483398438
 		},
 		{
 			"id": 43,
 			"is_mirror": false,
 			"mirror_id": 44,
-			"rotation": 0.0,
-			"type": 12,
-			"type_name": "Dorito Small",
+			"rotation": 1.5571323633194,
+			"type": 3,
+			"type_name": "Mini Wing",
 			"visible": true,
-			"x": 20.0900573730469,
-			"y": 3.58046269416809
+			"x": 17.8796825408936,
+			"y": 32.4482727050781
 		},
 		{
 			"id": 44,
 			"is_mirror": true,
 			"mirror_id": 43,
-			"rotation": 0.0,
-			"type": 12,
-			"type_name": "Dorito Small",
+			"rotation": -1.5571323633194,
+			"type": 3,
+			"type_name": "Mini Wing",
 			"visible": true,
-			"x": 25.1263599395752,
-			"y": 3.58046269416809
+			"x": 27.1134243011475,
+			"y": 32.4482727050781
 		},
 		{
 			"id": 45,
 			"is_mirror": false,
 			"mirror_id": 46,
-			"rotation": 1.56402373313904,
-			"type": 1,
-			"type_name": "Mini Block",
+			"rotation": 0.0,
+			"type": 14,
+			"type_name": "Snake Small",
 			"visible": true,
-			"x": 3.27435731887817,
-			"y": 3.32189035415649
+			"x": 22.317850112915,
+			"y": 29.8713798522949
 		},
 		{
 			"id": 46,
 			"is_mirror": true,
 			"mirror_id": 45,
-			"rotation": -1.56402373313904,
-			"type": 1,
-			"type_name": "Mini Block",
-			"visible": true,
-			"x": 41.9420585632324,
-			"y": 3.32189035415649
-		},
-		{
-			"id": 47,
-			"is_mirror": false,
-			"mirror_id": 48,
 			"rotation": 0.0,
-			"type": 6,
-			"type_name": "Temple",
+			"type": 14,
+			"type_name": "Snake Small",
 			"visible": true,
-			"x": 3.4535608291626,
-			"y": 8.30867671966553
-		},
-		{
-			"id": 48,
-			"is_mirror": true,
-			"mirror_id": 47,
-			"rotation": 0.0,
-			"type": 6,
-			"type_name": "Temple",
-			"visible": true,
-			"x": 41.7628593444824,
-			"y": 8.30867671966553
-		},
-		{
-			"id": 53,
-			"is_mirror": false,
-			"mirror_id": 54,
-			"rotation": 1.55627846717834,
-			"type": 16,
-			"type_name": "Brick",
-			"visible": true,
-			"x": 5.33023881912231,
-			"y": 32.3980712890625
-		},
-		{
-			"id": 54,
-			"is_mirror": true,
-			"mirror_id": 53,
-			"rotation": -1.55627846717834,
-			"type": 16,
-			"type_name": "Brick",
-			"visible": true,
-			"x": 39.8861770629883,
-			"y": 32.3980712890625
+			"x": 22.6752529144287,
+			"y": 29.8713798522949
 		}
 	],
 	"calibration": {
 		"bottom_left": [
-			434.15576171875,
-			952.268920898438
+			434.336303710938,
+			955.17919921875
 		],
 		"bottom_right": [
-			1476.0947265625,
-			955.468017578125
+			1472.88818359375,
+			955.19140625
 		],
 		"calibrated": true,
 		"center_pixel": [
-			954.163452148438,
-			438.318481445312
+			954.1494140625,
+			450.069152832031
 		],
 		"top_left": [
-			435.688873291016,
-			125.411903381348
+			435.201568603516,
+			123.974082946777
 		],
 		"top_right": [
-			1467.67492675781,
-			124.742538452148
+			1473.25634765625,
+			125.956085205078
 		]
 	},
 	"field": {

@@ -101,53 +101,24 @@ func get_world_vertices(center: Vector2, scale: float = 1.0, rotation: float = 0
 func intersects_ray(origin: Vector2, direction: Vector2, max_distance: float, center: Vector2, scale: float = 1.0, rotation: float = 0.0) -> float:
 	var vertices = get_world_vertices(center, scale, rotation)
 	
-	match shape:
-		Shape.CIRCLE:
-			var radius = size.x * scale
-			return _segment_intersects_circle(origin, direction, max_distance, center, radius)
-		
-		Shape.RECT, Shape.TRIANGLE, Shape.POLYGON:
-			return _segment_intersects_polygon(origin, direction, max_distance, vertices)
-		
-		_:
-			return max_distance
-
-func _segment_intersects_circle(origin: Vector2, direction: Vector2, max_dist: float, center: Vector2, radius: float) -> float:
-	var to_center = center - origin
-	var proj = to_center.dot(direction)
-	
-	if proj < 0:
-		return max_dist
-	
-	var closest = origin + direction * proj
-	var dist_to_center = closest.distance_to(center)
-	
-	# Точное пересечение с окружностью
-	if dist_to_center < radius:
-		var hit_dist = proj - sqrt(radius * radius - dist_to_center * dist_to_center)
-		return max(0, hit_dist)
-	
-	return max_dist
-
-func _segment_intersects_polygon(origin: Vector2, direction: Vector2, max_dist: float, vertices: PackedVector2Array) -> float:
 	if vertices.size() < 3:
-		return max_dist
+		return max_distance
 	
-	var min_hit = max_dist
+	var min_hit_dist := max_distance
 	
 	for i in range(vertices.size()):
 		var j = (i + 1) % vertices.size()
 		var a = vertices[i]
 		var b = vertices[j]
 		
-		var hit = _segment_intersects_segment(origin, direction, max_dist, a, b)
-		if hit >= 0 and hit < min_hit:
-			min_hit = hit
+		var hit = _segment_intersects_segment(origin, direction, max_distance, a, b)
+		if hit >= 0 and hit < min_hit_dist:
+			min_hit_dist = hit
 	
-	return min_hit
+	return min_hit_dist
 
-func _segment_intersects_segment(origin: Vector2, dir: Vector2, max_dist: float, a: Vector2, b: Vector2) -> float:
-	var d1 = dir
+func _segment_intersects_segment(origin: Vector2, direction: Vector2, max_dist: float, a: Vector2, b: Vector2) -> float:
+	var d1 = direction
 	var d2 = b - a
 	var d = origin - a
 	
@@ -163,3 +134,25 @@ func _segment_intersects_segment(origin: Vector2, dir: Vector2, max_dist: float,
 		return t
 	
 	return -1.0
+
+func is_point_inside(point: Vector2, center: Vector2, scale: float = 1.0, rotation: float = 0.0) -> bool:
+	var vertices = get_world_vertices(center, scale, rotation)
+	
+	if vertices.size() < 3:
+		return false
+	
+	var inside := false
+	var j := vertices.size() - 1
+	
+	for i in range(vertices.size()):
+		var xi = vertices[i].x
+		var yi = vertices[i].y
+		var xj = vertices[j].x
+		var yj = vertices[j].y
+		
+		if ((yi > point.y) != (yj > point.y)) and (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi):
+			inside = !inside
+		
+		j = i
+	
+	return inside

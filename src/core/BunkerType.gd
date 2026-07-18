@@ -17,7 +17,8 @@ enum Type {
 	SNAKE_BEAM,
 	SNAKE_SMALL,
 	MINI_M,
-	BRICK
+	BRICK,
+	BANNER  # Новое укрытие
 }
 
 static func get_display_name(type: Type) -> String:
@@ -39,6 +40,7 @@ static func get_display_name(type: Type) -> String:
 		Type.SNAKE_SMALL: return "Snake Small"
 		Type.MINI_M: return "Mini M"
 		Type.BRICK: return "Brick"
+		Type.BANNER: return "Banner"
 		_: return "Unknown"
 
 static func get_all_types() -> Array:

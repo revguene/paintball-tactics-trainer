@@ -8,7 +8,6 @@ extends Node2D
 
 var _document: Document = null
 var _field_editor: FieldEditor = null
-var _player_editor: PlayerEditor = null
 var field := Field.new()
 var calibration_step := 0
 var corners := []
@@ -25,10 +24,12 @@ var center_drag_enabled := false
 var editor_mode: int = EditorMode.Mode.FIELD_EDITOR
 var _game_engine: GameEngine = null
 var _game_ui: GameUI = null
+var _player_editor: PlayerEditor = null
+var human_team: int = Player.Team.RED
 
 func _ready() -> void:
 	print("Paintball Tactical Editor v0.1.0")
-	print("Sprint 5 - Player Editor")
+	print("Sprint 4 - Field Editor")
 	
 	_document = Document.new()
 	_document.name = "Untitled"
@@ -37,11 +38,14 @@ func _ready() -> void:
 	if _field_editor:
 		print("✅ FieldEditor готов")
 	
-	_player_editor = $PlayerEditor
-	if _player_editor:
-		print("✅ PlayerEditor готов")
-		_player_editor.set_field_reference(field)
-		_player_editor.set_editor_reference(_field_editor)
+	_player_editor = get_node_or_null("PlayerEditor")
+	if not _player_editor:
+		_player_editor = PlayerEditor.new()
+		add_child(_player_editor)
+		print("✅ PlayerEditor создан")
+	
+	_player_editor.set_field_reference(field)
+	_player_editor.set_editor_reference(_field_editor)
 	
 	var ui = $UI
 	if ui:
@@ -50,12 +54,12 @@ func _ready() -> void:
 			main_menu.edit_field.connect(_on_edit_field_signal)
 			main_menu.save_project.connect(_on_save_project)
 			main_menu.load_project.connect(_on_load_project)
-			main_menu.game_mode_with_file.connect(_on_game_mode_with_file)
+			main_menu.game_mode.connect(_on_game_mode)
 			print("✅ MainMenu подключён")
 	
 	if hint:
 		hint.add_theme_font_size_override("font_size", 42)
-		hint.text = "Нажмите «Edit Field» чтобы загрузить изображение поля"
+		hint.text = "1 — Select | 2 — Add Bunker | 3 — Add Player | 4 — Teams | Game — Play"
 		calibration_active = false
 		center_drag_enabled = false
 	
@@ -70,34 +74,21 @@ func _setup_game_ui() -> void:
 
 func enter_field_editor() -> void:
 	editor_mode = EditorMode.Mode.FIELD_EDITOR
+	if _game_ui:
+		_game_ui.visible = false
 	print("🔧 Режим: FIELD EDITOR")
-	if _field_editor:
-		_field_editor.visible = true
-	if _player_editor:
-		_player_editor.visible = false
-	if hint:
-		hint.visible = true
 
 func enter_tactical_editor() -> void:
 	editor_mode = EditorMode.Mode.TACTICAL_EDITOR
+	if _game_ui:
+		_game_ui.visible = false
 	print("🎯 Режим: TACTICAL EDITOR")
-	if _field_editor:
-		_field_editor.visible = true
-	if _player_editor:
-		_player_editor.visible = true
-	if hint:
-		hint.visible = false
 
 func enter_game() -> void:
 	editor_mode = EditorMode.Mode.GAME
+	if _game_ui:
+		_game_ui.visible = true
 	print("🎮 Режим: GAME")
-	# В GAME режиме ПОКАЗЫВАЕМ всё поле с бункерами и игроками
-	if _field_editor:
-		_field_editor.visible = true
-	if _player_editor:
-		_player_editor.visible = true
-	if hint:
-		hint.visible = false
 
 func is_field_editor() -> bool:
 	return editor_mode == EditorMode.Mode.FIELD_EDITOR
@@ -112,19 +103,22 @@ func _on_edit_field_signal() -> void:
 	enter_field_editor()
 
 func _on_save_project(path: String) -> void:
-	print("📥 Получен путь для сохранения: %s" % path)
 	save_document(path)
 
 func _on_load_project(path: String) -> void:
 	enter_tactical_editor()
 	load_document(path)
 
-func _on_game_mode_with_file(path: String) -> void:
-	enter_game()
-	print("🎮 Загрузка файла для игры: %s" % path)
-	load_document(path)
+func _on_game_mode() -> void:
+	print("🎮 Загрузка Game файла: ", current_image_path)
+	if current_image_path != "" and current_image_path.ends_with(".ptf"):
+		enter_game()
+		load_document(current_image_path)
+	else:
+		print("⚠️ Сначала загрузите поле через Edit Field или выберите .ptf файл")
 
 func load_field(path: String) -> void:
+	print("📂 load_field: ", path)
 	if not is_field_editor():
 		print("⚠️ Редактирование поля доступно только в FIELD_EDITOR режиме")
 		return
@@ -213,11 +207,9 @@ func _fit_image_to_view() -> void:
 	if camera:
 		camera.position = viewport_size / 2
 		camera.zoom = Vector2(1, 1)
-		print("✅ Камера установлена: position=%s, zoom=%s" % [camera.position, camera.zoom])
 
 func save_document(path: String) -> void:
 	print("💾 Сохранение документа: %s" % path)
-	print("========================")
 	
 	if not _field_editor:
 		print("❌ FieldEditor не найден")
@@ -226,10 +218,7 @@ func save_document(path: String) -> void:
 	var bunkers_data = []
 	for child in _field_editor.get_children():
 		if child is Bunker:
-			var field_pos = child.field_position
-			if field_pos == Vector2.ZERO and field.calibrated:
-				field_pos = field.screen_to_field(child.position)
-			
+			var field_pos = field.screen_to_field(child.position)
 			bunkers_data.append({
 				"id": child.id,
 				"mirror_id": child.mirror_id,
@@ -242,50 +231,13 @@ func save_document(path: String) -> void:
 				"visible": true
 			})
 	
-	print("   Собрано укрытий (метры): %s" % bunkers_data.size())
-	
-	var players_data = []
-	if _player_editor:
-		for visual in _player_editor.players:
-			if visual and visual.player:
-				var player = visual.player
-				
-				var status_str = "ACTIVE" if player.status == Player.Status.ACTIVE else "ELIMINATED"
-				
-				var side_str = "CENTER"
-				match player.ray_origin:
-					Player.RayOrigin.LEFT:
-						side_str = "LEFT"
-					Player.RayOrigin.RIGHT:
-						side_str = "RIGHT"
-					_:
-						side_str = "CENTER"
-				
-				players_data.append({
-					"id": player.id,
-					"number": player.number,
-					"team": "RED" if player.team == Player.Team.RED else "BLUE",
-					"x": player.position_metric.x,
-					"y": player.position_metric.y,
-					"angle": player.get_rotation_degrees(),
-					"ray_enabled": visual.show_ray,
-					"ray_length": visual.ray_length_metric,
-					"status": status_str,
-					"side": side_str
-				})
-	
-	print("   Собрано игроков: %s" % players_data.size())
-	
 	_document.clear_bunkers()
 	for data in bunkers_data:
 		_document.add_bunker(data)
 	
-	_document.players = players_data
-	
 	if field.calibrated:
 		_document.set_corners(field.top_left, field.top_right, field.bottom_right, field.bottom_left)
 		_document.set_center(field.center_pixel)
-		print("   Калибровка сохранена")
 	
 	_document.image_path = current_image_path
 	if field_image.texture:
@@ -293,22 +245,15 @@ func save_document(path: String) -> void:
 		if image:
 			var png_data = image.save_png_to_buffer()
 			_document.image_data = Marshalls.raw_to_base64(png_data)
-			print("   Изображение сохранено: %s байт" % png_data.size())
 	
-	print("   Сохраняем на диск...")
 	var err = ProjectSerializer.save_document(_document, path)
-	
 	if err == OK:
 		print("✅ Документ сохранён: %s" % path)
-		if FileAccess.file_exists(path):
-			print("✅ Файл существует: %s" % path)
-		else:
-			print("❌ Файл НЕ существует: %s" % path)
 	else:
 		print("❌ Ошибка сохранения: %s" % err)
 
 func load_document(path: String) -> void:
-	print("📂 Загрузка документа: %s" % path)
+	print("📂 load_document: ", path)
 	
 	background.visible = false
 	title.visible = false
@@ -330,11 +275,18 @@ func load_document(path: String) -> void:
 		var err = image.load_png_from_buffer(image_bytes)
 		if err == OK:
 			var texture = ImageTexture.create_from_image(image)
+			
+			field_image.texture = null
 			field_image.texture = texture
 			field_image.centered = true
 			field_image.visible = true
+			field_image.show()
+			field_image.modulate = Color.WHITE
+			
 			_fit_image_to_view()
+			
 			print("✅ Изображение восстановлено из base64")
+			print("   Размер: %s x %s" % [texture.get_width(), texture.get_height()])
 		else:
 			print("❌ Ошибка восстановления изображения: %s" % err)
 	
@@ -353,12 +305,12 @@ func load_document(path: String) -> void:
 	
 	var restored_count = 0
 	for data in _document.bunkers:
-		var metric_pos = Vector2(data["x"], data["y"])
-		var screen_pos = field.field_to_screen(metric_pos)
+		var pos = Vector2(data["x"], data["y"])
+		var screen_pos = field.field_to_screen(pos)
 		
 		var bunker = Bunker.new()
 		bunker.position = screen_pos
-		bunker.field_position = metric_pos
+		bunker.field_position = pos
 		bunker.id = data.get("id", restored_count + 1)
 		bunker.mirror_id = data.get("mirror_id", -1)
 		
@@ -376,53 +328,15 @@ func load_document(path: String) -> void:
 		_field_editor.add_child(bunker)
 		bunker.queue_redraw()
 		restored_count += 1
-		print("   ✅ Восстановлен бункер %d: метры(%.2f, %.2f) -> пиксели(%.1f, %.1f)" % [bunker.id, metric_pos.x, metric_pos.y, screen_pos.x, screen_pos.y])
+		print("✅ Восстановлен бункер %d: (%.2f, %.2f)" % [bunker.id, pos.x, pos.y])
 	
 	print("✅ Восстановлено укрытий: %s" % restored_count)
 	
 	if _player_editor:
-		_player_editor.clear_players()
-		
-		var restored_players = 0
-		for data in _document.players:
-			var player = Player.new()
-			player.id = data.get("id", restored_players + 1)
-			player.number = data.get("number", restored_players + 1)
-			player.team = Player.Team.RED if data.get("team", "RED") == "RED" else Player.Team.BLUE
-			player.position_metric = Vector2(data.get("x", 0.0), data.get("y", 0.0))
-			player.set_rotation_degrees(data.get("angle", 0.0))
-			player.status = Player.Status.ACTIVE if data.get("status", "ACTIVE") == "ACTIVE" else Player.Status.ELIMINATED
-			
-			var side = data.get("side", "CENTER")
-			match side:
-				"LEFT":
-					player.ray_origin = Player.RayOrigin.LEFT
-				"RIGHT":
-					player.ray_origin = Player.RayOrigin.RIGHT
-				_:
-					player.ray_origin = Player.RayOrigin.CENTER
-			
-			var visual = PlayerVisual.new()
-			visual.setup(player, field, _field_editor)
-			
-			var ray_enabled = data.get("ray_enabled", false)
-			if ray_enabled:
-				visual.enable_ray()
-			visual.ray_length_metric = data.get("ray_length", 45.0)
-			
-			_player_editor.add_child(visual)
-			_player_editor.players.append(visual)
-			restored_players += 1
-			print("   ✅ Восстановлен игрок %d: (%.2f, %.2f) м, угол %.1f°, луч: %s" % [
-				player.number, 
-				player.position_metric.x, 
-				player.position_metric.y,
-				player.get_rotation_degrees(),
-				"включен" if ray_enabled else "выключен"
-			])
-		
-		print("✅ Восстановлено игроков: %s" % restored_players)
+		_player_editor.set_field_reference(field)
+		_player_editor.set_editor_reference(_field_editor)
 	
+	current_image_path = path
 	print("✅ Документ загружен: %s" % path)
 	
 	if is_game():
@@ -430,21 +344,35 @@ func load_document(path: String) -> void:
 
 func _start_game() -> void:
 	print("🎮 Запуск игры...")
+	print("   Игрок управляет: ", "RED" if human_team == Player.Team.RED else "BLUE")
 	
 	if not _game_engine:
 		_game_engine = GameEngine.new()
 		add_child(_game_engine)
 		
-		if not _player_editor:
-			_player_editor = PlayerEditor.new()
-			add_child(_player_editor)
+		if _player_editor:
+			_player_editor.set_field_reference(field)
+			_player_editor.set_editor_reference(_field_editor)
 		
-		_game_engine.setup(_player_editor, _field_editor, field)
+		_game_engine.setup(_player_editor, _field_editor, field, human_team)
 	
 	if _game_ui:
 		_game_ui.visible = true
+		_game_ui.set_phase(0)
 	
 	_game_engine.start_breakout()
+	
+	_game_engine.phase_changed.connect(_on_phase_changed)
+	_game_engine.game_over.connect(_on_game_over)
+
+func _on_phase_changed(new_phase: int) -> void:
+	if _game_ui:
+		_game_ui.set_phase(new_phase)
+
+func _on_game_over(message: String) -> void:
+	print("🏁 %s" % message)
+	if _game_ui:
+		_game_ui.set_status("ИГРА ОКОНЧЕНА: " + message)
 
 func _on_finish_turn() -> void:
 	if _game_engine:
@@ -453,7 +381,19 @@ func _on_finish_turn() -> void:
 		print("❌ GameEngine не инициализирован")
 
 func _on_reset_game() -> void:
-	get_tree().reload_current_scene()
+	print("🔄 Сброс игры на баннер")
+	
+	if _player_editor:
+		_player_editor.reset_to_banner(field)
+	
+	if _game_engine:
+		_game_engine.start_breakout()
+	else:
+		_start_game()
+	
+	if _game_ui:
+		_game_ui.set_phase(0)
+		_game_ui.set_status("РАЗБЕЖКА")
 
 func _input(event: InputEvent) -> void:
 	if not calibration_active:
@@ -531,7 +471,7 @@ func _calibration_reset() -> void:
 	
 	if hint:
 		hint.visible = true
-		hint.text = "Нажмите «Edit Field» чтобы загрузить изображение поля"
+		hint.text = "1 — Select | 2 — Add Bunker | 3 — Add Player | 4 — Teams | Game — Play"
 
 func _handle_center_drag(event: InputEvent) -> void:
 	if not field.calibrated:
@@ -585,16 +525,9 @@ func get_field() -> Field:
 func is_calibrated() -> bool:
 	return field.calibrated
 
+func get_player_editor() -> PlayerEditor:
+	return _player_editor
 
-# === ЗАГЛУШКИ ===
-func _on_game_state_changed(new_state):
-	print("Состояние игры: ", new_state)
-
-func _on_game_over(message):
-	print("Игра окончена: ", message)
-
-func _setup_load_dialog():
-	pass
-
-func _setup_field_context_menu():
-	pass
+func set_human_team(team: int) -> void:
+	human_team = team
+	print("🎮 Игрок управляет: ", "RED" if team == Player.Team.RED else "BLUE")
