@@ -14,6 +14,7 @@ var tools: Dictionary = {}
 
 const SelectToolClass = preload("res://src/editor/tools/SelectTool.gd")
 const AddBunkerToolClass = preload("res://src/editor/tools/AddBunkerTool.gd")
+const PlayerToolClass = preload("res://src/editor/tools/PlayerTool.gd")
 
 var player_tool: BaseTool = null
 var _team_menu: TeamMenu = null
@@ -22,7 +23,7 @@ func _ready() -> void:
 	tools[Tool.SELECT] = SelectToolClass.new(self)
 	tools[Tool.ADD_BUNKER] = AddBunkerToolClass.new(self)
 	
-	player_tool = PlayerTool.new(self)
+	player_tool = PlayerToolClass.new(self)
 	
 	call_deferred("_setup_team_menu")
 	
@@ -76,14 +77,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not main.is_calibrated():
 			return
 	
+	# === КЛАВИАТУРА ===
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_1:
-				_set_tool(Tool.SELECT)
+				# Передаём в SelectTool для переключения режима
+				if tools.has(Tool.SELECT):
+					tools[Tool.SELECT]._input(event)
 				get_viewport().set_input_as_handled()
 			KEY_2:
-				_set_tool(Tool.ADD_BUNKER)
-				get_viewport().set_input_as_handled()
+				# ADD_BUNKER — только в FIELD_EDITOR
+				if main and main.has_method("is_field_editor") and main.is_field_editor():
+					_set_tool(Tool.ADD_BUNKER)
+					get_viewport().set_input_as_handled()
+				else:
+					print("⚠️ Добавление бункеров доступно только в Edit Field")
 			KEY_3:
 				_set_tool(Tool.ADD_PLAYER)
 				get_viewport().set_input_as_handled()
@@ -91,11 +99,26 @@ func _unhandled_input(event: InputEvent) -> void:
 				_set_tool(Tool.SPAWN_TEAMS)
 				_show_team_menu()
 				get_viewport().set_input_as_handled()
+			KEY_ESCAPE:
+				_set_tool(Tool.SELECT)
+				get_viewport().set_input_as_handled()
 	
-	if current_tool == Tool.ADD_PLAYER and player_tool:
-		player_tool._input(event)
-	elif current_tool in tools:
-		tools[current_tool]._input(event)
+	# === МЫШЬ — ТОЛЬКО ТЕКУЩЕМУ ИНСТРУМЕНТУ ===
+	if event is InputEventMouseButton or event is InputEventMouseMotion:
+		match current_tool:
+			Tool.SELECT:
+				if tools.has(Tool.SELECT):
+					tools[Tool.SELECT]._input(event)
+			Tool.ADD_BUNKER:
+				if tools.has(Tool.ADD_BUNKER):
+					tools[Tool.ADD_BUNKER]._input(event)
+			Tool.ADD_PLAYER:
+				if player_tool:
+					player_tool._input(event)
+			Tool.DRAW_LINE:
+				pass
+			Tool.SPAWN_TEAMS:
+				pass
 
 func _show_team_menu() -> void:
 	if _team_menu:

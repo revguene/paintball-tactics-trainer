@@ -20,6 +20,12 @@ const DATA := {
 		"width": 3.00,
 		"height": 2.00
 	},
+	BunkerType.Type.GIANT_WING_UP: {
+		"name": "Giant Wing Up",
+		"shape": "wing",
+		"width": 1.50,
+		"height": 2.00
+	},
 	BunkerType.Type.MINI_WING: {
 		"name": "Mini Wing",
 		"shape": "wing",
@@ -57,7 +63,7 @@ const DATA := {
 	BunkerType.Type.CAKE: {
 		"name": "Cake",
 		"shape": "triangle",
-		"size": 1.20
+		"size": 1.5
 	},
 	BunkerType.Type.CAKE_TAIL: {
 		"name": "Cake Tail",

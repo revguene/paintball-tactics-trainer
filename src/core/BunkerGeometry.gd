@@ -63,11 +63,12 @@ func get_local_vertices() -> PackedVector2Array:
 		Shape.RECT:
 			var half_w = size.x / 2.0
 			var half_h = size.y / 2.0
+			# ПРОТИВ ЧАСОВОЙ СТРЕЛКИ
 			return PackedVector2Array([
 				Vector2(-half_w, -half_h),
-				Vector2(half_w, -half_h),
-				Vector2(half_w, half_h),
-				Vector2(-half_w, half_h)
+				Vector2(-half_w,  half_h),
+				Vector2( half_w,  half_h),
+				Vector2( half_w, -half_h)
 			])
 		
 		Shape.CIRCLE:
@@ -120,7 +121,7 @@ func intersects_ray(origin: Vector2, direction: Vector2, max_distance: float, ce
 func _segment_intersects_segment(origin: Vector2, direction: Vector2, max_dist: float, a: Vector2, b: Vector2) -> float:
 	var d1 = direction
 	var d2 = b - a
-	var d = origin - a
+	var d = a - origin  # ПРАВИЛЬНАЯ ФОРМУЛА
 	
 	var cross = d1.x * d2.y - d1.y * d2.x
 	

@@ -1,6 +1,8 @@
 class_name PlayerVisual
 extends Node2D
 
+const RayCasterClass = preload("res://src/core/RayCaster.gd")
+
 var player: Player = null
 var selected := false
 var radius: float = 12.0
@@ -56,12 +58,11 @@ func _draw():
 	if not player:
 		return
 	
-	var color = Color(0.9, 0.1, 0.1, 1.0) if player.team == Player.Team.RED else Color(0.1, 0.3, 0.9, 1.0)
+	var color = Color(0.6, 0.05, 0.05, 1.0) if player.team == Player.Team.RED else Color(0.1, 0.3, 0.9, 1.0)
 	
 	if player.status == Player.Status.ELIMINATED:
 		color = color.darkened(0.5)
 	
-	# Круг игрока
 	draw_circle(Vector2.ZERO, radius, color)
 	draw_circle(Vector2.ZERO, radius, color.darkened(0.2), false, 1.5)
 	
@@ -76,12 +77,10 @@ func _draw():
 			Color(1.0, 1.0, 1.0, 0.9)
 		)
 	
-	# Направление
 	var dir = Vector2(1, 0).rotated(player.rotation)
 	var end_pos = dir * (radius * 1.8)
 	draw_circle(end_pos, 4.0, Color(1.0, 0.3, 0.3, 1.0))
 	
-	# ЛУЧ
 	if show_ray and _field_ref and _field_ref.calibrated:
 		var direction = Vector2(1, 0).rotated(player.rotation)
 		var origin_metric = player.position_metric
@@ -93,28 +92,26 @@ func _draw():
 		
 		var bunkers = _get_bunkers()
 		
-		var max_ray_end = RayCaster.cast(ray_origin_metric, direction, bunkers, _field_ref)
+		var max_ray_end = RayCasterClass.cast(ray_origin_metric, direction, bunkers, _field_ref)
 		var max_length = ray_origin_metric.distance_to(max_ray_end)
-		
 		var current_length = min(ray_length_metric, max_length)
+		
 		var ray_end_metric = ray_origin_metric + direction * current_length
 		var ray_end_px = _field_ref.field_to_screen(ray_end_metric)
+		var local_end = ray_end_px - position
 		
 		var local_start = offset_rotated
-		var local_end = ray_end_px - position
 		
 		if local_end.length() > 5:
 			var ray_color = get_ray_color()
 			draw_line(local_start, local_end, ray_color, 2.5)
 			
-			# Точки на луче
-			var num_dots = 5
+			var num_dots = 15
 			for i in range(1, num_dots):
 				var t = i / float(num_dots)
 				var dot_pos = local_start + (local_end - local_start) * t
 				draw_circle(dot_pos, 2.0, ray_color, 0.5)
 			
-			# Проверка попадания
 			var hit_bunker = false
 			for bunker in bunkers:
 				if bunker is Bunker:
@@ -135,8 +132,16 @@ func _draw():
 			if is_editing_ray:
 				draw_circle(local_end, 10.0, Color(0.0, 0.8, 1.0, 0.6))
 				draw_circle(local_end, 10.0, Color(0.0, 0.5, 1.0, 0.9), false, 2.0)
+				draw_string(
+					ThemeDB.fallback_font,
+					local_end + Vector2(12, -8),
+					"↕",
+					HORIZONTAL_ALIGNMENT_LEFT,
+					-1,
+					16,
+					Color(0.0, 0.8, 1.0, 0.8)
+				)
 		
-		# Точка выхода луча
 		if selected:
 			var dot_color = Color(0.0, 1.0, 0.0, 0.8)
 			match player.ray_origin:
@@ -176,7 +181,7 @@ func get_ray_end_pixel() -> Vector2:
 	
 	var bunkers = _get_bunkers()
 	
-	var max_ray_end = RayCaster.cast(ray_origin_metric, direction, bunkers, _field_ref)
+	var max_ray_end = RayCasterClass.cast(ray_origin_metric, direction, bunkers, _field_ref)
 	var max_length = ray_origin_metric.distance_to(max_ray_end)
 	var current_length = min(ray_length_metric, max_length)
 	var ray_end_metric = ray_origin_metric + direction * current_length
@@ -214,7 +219,7 @@ func update_ray_length(mouse_pos: Vector2) -> void:
 	
 	var bunkers = _get_bunkers()
 	
-	var max_ray_end = RayCaster.cast(ray_origin_metric, direction, bunkers, _field_ref)
+	var max_ray_end = RayCasterClass.cast(ray_origin_metric, direction, bunkers, _field_ref)
 	var max_length = ray_origin_metric.distance_to(max_ray_end)
 	
 	var mouse_metric = _field_ref.screen_to_field(mouse_pos)

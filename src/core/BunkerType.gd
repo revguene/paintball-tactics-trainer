@@ -4,6 +4,7 @@ enum Type {
 	GIANT_BLOCK,
 	MINI_BLOCK,
 	GIANT_WING,
+	GIANT_WING_UP,
 	MINI_WING,
 	PLUS,
 	MAYAN_TEMPLE,
@@ -18,7 +19,7 @@ enum Type {
 	SNAKE_SMALL,
 	MINI_M,
 	BRICK,
-	BANNER  # Новое укрытие
+	BANNER
 }
 
 static func get_display_name(type: Type) -> String:
@@ -26,6 +27,7 @@ static func get_display_name(type: Type) -> String:
 		Type.GIANT_BLOCK: return "Giant Block"
 		Type.MINI_BLOCK: return "Mini Block"
 		Type.GIANT_WING: return "Giant Wing"
+		Type.GIANT_WING_UP: return "Giant Wing Up"
 		Type.MINI_WING: return "Mini Wing"
 		Type.PLUS: return "Plus"
 		Type.MAYAN_TEMPLE: return "Mayan Temple"

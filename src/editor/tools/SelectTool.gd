@@ -7,6 +7,15 @@ var drag_offset := Vector2.ZERO
 var selected_bunker: Bunker = null
 var mirror_bunker: Bunker = null
 
+# === РЕЖИМ РЕДАКТИРОВАНИЯ (ВКЛ/ВЫКЛ ПО КЛАВИШЕ 1) ===
+var editing_enabled := false
+
+func toggle_editing() -> void:
+	editing_enabled = !editing_enabled
+	if not editing_enabled:
+		_deselect_all()
+	print("🔧 Режим редактирования: ", "ВКЛ" if editing_enabled else "ВЫКЛ")
+
 func _input(event: InputEvent) -> void:
 	if not editor:
 		return
@@ -16,16 +25,28 @@ func _input(event: InputEvent) -> void:
 		return
 	
 	var main = tree.current_scene
-	if not main or not main.has_method("is_field_editor"):
+	if not main:
 		return
 	
-	if not main.is_field_editor():
+	# РАБОТАЕТ ВЕЗДЕ (FIELD_EDITOR и TACTICAL_EDITOR)
+	if not main.has_method("is_field_editor") and not main.has_method("is_tactical_editor"):
+		return
+	
+	# === КЛАВИША 1 — ПЕРЕКЛЮЧЕНИЕ РЕЖИМА ===
+	if event is InputEventKey and event.pressed and event.keycode == KEY_1:
+		toggle_editing()
+		# Используем editor.get_viewport() вместо get_viewport()
+		if editor and editor.get_viewport():
+			editor.get_viewport().set_input_as_handled()
+		return
+	
+	# === ЕСЛИ РЕЖИМ ВЫКЛЮЧЕН — НИЧЕГО НЕ ДЕЛАЕМ ===
+	if not editing_enabled:
 		return
 	
 	var mouse_pos := editor.get_global_mouse_position()
 	
 	if event is InputEventMouseButton:
-		# ЛКМ — выделение и перемещение
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if Input.is_key_pressed(KEY_SPACE):
@@ -39,7 +60,6 @@ func _input(event: InputEvent) -> void:
 						selected_bunker.select()
 						print("✅ Выделен бункер ID: %s" % selected_bunker.id)
 					
-					# Перемещение (не вращение)
 					dragging = true
 					drag_offset = mouse_pos - selected_bunker.position
 					mirror_bunker = _get_mirror_bunker(selected_bunker)
@@ -49,7 +69,6 @@ func _input(event: InputEvent) -> void:
 			else:
 				dragging = false
 		
-		# ПКМ — ВРАЩЕНИЕ!
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed and selected_bunker:
 				is_rotating = true

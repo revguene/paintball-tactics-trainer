@@ -16,12 +16,13 @@ const HANDLE_RADIUS := 12.0
 
 const COLOR_BLUE := Color(0.4, 0.6, 0.9, 1.0)
 const COLOR_RED := Color(0.85, 0.1, 0.1, 1.0)
-const COLOR_BANNER := Color(0.5, 0.8, 1.0, 1.0)  # Светло-голубой
+const COLOR_BANNER := Color(0.5, 0.8, 1.0, 1.0)
 
 func get_color() -> Color:
 	match bunker_type:
 		BunkerType.Type.GIANT_BLOCK: return COLOR_BLUE
 		BunkerType.Type.GIANT_WING: return COLOR_BLUE
+		BunkerType.Type.GIANT_WING_UP: return COLOR_BLUE
 		BunkerType.Type.MINI_M: return COLOR_BLUE
 		BunkerType.Type.BANNER: return COLOR_BANNER
 		_: return COLOR_RED
@@ -36,7 +37,11 @@ func _ready():
 		if main and main.has_method("get_field"):
 			var field = main.get_field()
 			if field and field.calibrated:
-				field_position = field.screen_to_field(position)
+				var info = BunkerLibrary.get_info(bunker_type)
+				var half_w = info.get("width", 1.0) / 2.0
+				var half_h = info.get("height", 1.0) / 2.0
+				var pos = field.screen_to_field(position)
+				field_position = pos - Vector2(half_w, half_h)
 	
 	queue_redraw()
 
@@ -73,6 +78,8 @@ func _draw():
 			_draw_rect(1.40, 1.10, color)
 		BunkerType.Type.GIANT_WING:
 			_draw_rect(3.00, 2.00, color)
+		BunkerType.Type.GIANT_WING_UP:
+			_draw_rect(1.50, 2.00, color)
 		BunkerType.Type.MINI_WING:
 			_draw_rect(2.20, 1.10, color)
 		BunkerType.Type.PLUS:
@@ -86,11 +93,11 @@ func _draw():
 		BunkerType.Type.PILLAR:
 			_draw_circle(0.50, color)
 		BunkerType.Type.CAKE:
-			_draw_circle(0.50, color)
+			_draw_triangle(1.5, color)
 		BunkerType.Type.CAKE_TAIL:
 			_draw_rect(1.50, 1.00, color)
 		BunkerType.Type.DORITO_SMALL:
-			_draw_triangle(1.70, color)
+			_draw_triangle(1.90, color)
 		BunkerType.Type.DORITO_MEDIUM:
 			_draw_triangle(2.10, color)
 		BunkerType.Type.SNAKE_BEAM:
@@ -175,19 +182,13 @@ func _draw_plus(size: float, color: Color):
 	draw_rect(Rect2(-s / 2, -s * 0.15, s, s * 0.3), color)
 
 func _draw_banner(color: Color):
-	# Баннер - длинная и тонкая полоса (2.5м x 0.2м)
 	var w = meter_to_px(2.5)
 	var h = meter_to_px(0.2)
-	
 	var r = Rect2(-w / 2, -h / 2, w, h)
 	draw_rect(r, color)
 	draw_rect(r, color.darkened(0.3), false, 2)
-	
-	# Точки по краям
 	draw_circle(Vector2(-w / 2, 0), 3.0, Color(1.0, 1.0, 1.0, 0.5))
 	draw_circle(Vector2(w / 2, 0), 3.0, Color(1.0, 1.0, 1.0, 0.5))
-	
-	# Метка "B" в центре
 	draw_string(
 		ThemeDB.fallback_font,
 		Vector2(-20, 5),
